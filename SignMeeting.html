@@ -1,0 +1,1011 @@
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<style>
+body{
+  font-family:Arial,"Noto Sans TC";
+  padding:20px;
+  max-width:760px;
+  margin:auto;
+}
+
+.courseBox{
+  padding:18px;
+  background:#f8f9fa;
+  border-radius:12px;
+  margin-bottom:18px;
+}
+
+label{
+  display:block;
+  font-size:16px;
+  color:#666;
+  margin-bottom:6px;
+}
+
+input,select{
+  width:100%;
+  box-sizing:border-box;
+  padding:16px;
+  border:1px solid #ccc;
+  border-radius:10px;
+}
+
+#courseInput{
+  font-size:28px;
+  font-weight:bold;
+  margin-bottom:18px;
+}
+
+#dateInput,
+#tokenInput,
+#nameInput,
+#empInput,
+#roleInput{
+  font-size:22px;
+  margin-bottom:18px;
+}
+
+.submit{
+  width:100%;
+  padding:16px;
+  border:0;
+  border-radius:10px;
+  background:#4f73d9;
+  color:white;
+  font-size:22px;
+  margin-top:8px;
+  margin-bottom:24px;
+}
+
+.nameBtn{
+  width:100%;
+  padding:16px;
+  font-size:22px;
+  border-radius:10px;
+  border:1px solid #bbb;
+  background:white;
+}
+
+@media(max-width:520px){
+  #courseInput{
+    font-size:22px;
+  }
+
+  #dateInput,
+  #tokenInput,
+  #nameInput,
+  #empInput{
+    font-size:18px;
+  }
+
+  .nameBtn{
+    font-size:18px;
+  }
+}
+
+#roleGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(95px,1fr));
+  gap:10px;
+  margin-bottom:24px;
+}
+
+.roleBtn{
+  background:white;
+  border:1px solid #d6dde7;
+  padding:14px;
+  font-size:18px;
+  color:#506070;
+  border-radius:14px;
+  transition:.15s;
+}
+
+.roleBtn:hover{
+  background:#f4f7fb;
+}
+
+.roleBtn.active{
+  background:#4f73d9;
+  color:white;
+  border-color:#4f73d9;
+}
+</style>
+
+<script>
+
+/*
+========================================
+1. 後端注入資料
+Sign.gs 會把這些資料塞進 SignMeeting.html
+========================================
+*/
+
+const APP_ENTRY_URL =
+  '<?= appEntryUrl ?>';
+
+const EMPLOYEE_ENTRY_ID =
+  '<?= employeeId ?>';
+
+const ROLE_ENTRY_ID =
+  '<?= roleId ?>';
+
+//把showSignMeetingPage(e)抓到的資料拿來用
+const staffList =
+  JSON.parse(
+    '<?!= staffList ?>'
+  );
+
+const EXPECTED_TOKEN =
+  '<?= expectedToken ?>';
+
+/*
+========================================
+2. 人員名單整理
+Staff.gs → staffList
+VS / F 放左邊
+其他職級放右邊
+========================================
+*/
+
+const leftStaff =
+  staffList.filter(
+    person =>
+      person.role === 'VS'
+      ||
+      person.role === 'F'
+  );
+
+const rightStaff =
+  staffList.filter(
+    person =>
+      person.role !== 'VS'
+      &&
+      person.role !== 'F'
+  );
+
+const empMap =
+  Object.fromEntries(
+    staffList.map(person => [
+      person.name,
+      person.emp
+    ])
+  );
+
+const roleMap =
+  Object.fromEntries(
+    staffList.map(person => [
+      person.name,
+      person.role
+    ])
+  );
+
+
+/*
+========================================
+3. 頁面載入初始化
+- 填入會議名稱
+- 填入會議時間
+- 第一次開啟保留 token
+- 重新整理後清掉 token
+- 畫出姓名按鈕
+========================================
+*/
+
+const pageKey =
+  'visited_' + location.href;
+
+window.addEventListener(
+  'DOMContentLoaded',
+  function(){
+
+    document
+      .getElementById('courseInput')
+      .value =
+      '<?= course ?>';
+
+    document
+      .getElementById('dateInput')
+      .value =
+      '<?= date ?>';
+
+    if(
+      sessionStorage.getItem(
+        pageKey
+      )
+    ){
+
+      document
+        .getElementById('tokenInput')
+        .value =
+        '';
+
+    }else{
+
+      document
+        .getElementById('tokenInput')
+        .value =
+        '<?= token ?>';
+
+      sessionStorage.setItem(
+        pageKey,
+        '1'
+      );
+
+    }
+
+    document
+      .getElementById('nameInput')
+      .value =
+      '';
+
+    document
+      .getElementById('empInput')
+      .value =
+      '';
+
+    renderTable();
+
+  }
+);
+
+
+/*
+========================================
+4. 姓名 / 員工編號輸入框互動
+手動輸入姓名或員編時，清掉原本職級選擇
+========================================
+*/
+
+function handleNameFocus(){
+
+  clearRoleActive();
+
+  document
+    .getElementById('empInput')
+    .placeholder =
+    '請輸入員工編號';
+
+}
+
+function handleEmpFocus(){
+
+  clearRoleActive();
+
+  document
+    .getElementById('empInput')
+    .placeholder =
+    '請輸入員工編號';
+
+}
+
+function handleEmpBlur(){
+
+  const emp =
+    document
+      .getElementById('empInput')
+      .value
+      .trim();
+
+  if(!emp){
+
+    document
+      .getElementById('empInput')
+      .placeholder =
+      '點選下方姓名可自動帶入員工編號';
+
+  }
+
+}
+
+
+/*
+========================================
+5. 產生姓名按鈕表格
+左欄：VS / F
+右欄：其他人員
+========================================
+*/
+
+function renderTable(){
+
+  let html =
+    '<table style="width:100%;table-layout:fixed;border-spacing:8px;">';
+
+  const rows =
+    Math.max(
+      leftStaff.length,
+      rightStaff.length
+    );
+
+  for(let i = 0; i < rows; i++){
+
+    html +=
+      '<tr>';
+
+    [
+      leftStaff[i],
+      rightStaff[i]
+    ].forEach(function(person){
+
+      const name =
+        person
+        ? person.name
+        : '';
+
+      html +=
+        '<td>' +
+          (
+            name
+            ? '<button type="button" class="nameBtn" onclick="pickName(\'' + name + '\')">' + name + '</button>'
+            : ''
+          ) +
+        '</td>';
+
+    });
+
+    html +=
+      '</tr>';
+
+  }
+
+  html +=
+    '</table>';
+
+  document
+    .getElementById('nameGrid')
+    .innerHTML =
+    html;
+
+}
+
+
+/*
+========================================
+6. 點選姓名
+自動帶入：
+- 姓名
+- 員工編號
+- 職級
+========================================
+*/
+
+function pickName(name){
+
+  const other =
+    document
+      .getElementById('customRoleInput');
+
+  if(other){
+
+    other.style.display =
+      'none';
+
+    other.value =
+      '';
+
+  }
+
+  document
+    .getElementById('nameInput')
+    .value =
+    name;
+
+  document
+    .getElementById('empInput')
+    .value =
+    empMap[name] || '';
+
+  const role =
+    roleMap[name] || '';
+
+  document
+    .getElementById('roleInput')
+    .value =
+    role;
+
+  document
+    .querySelectorAll('.roleBtn')
+    .forEach(function(btn){
+
+      btn.classList.toggle(
+        'active',
+        btn.dataset.role === role
+      );
+
+    });
+
+}
+
+
+/*
+========================================
+7. 職級按鈕互動
+========================================
+*/
+
+function pickRole(button, role){
+
+  document
+    .querySelectorAll('.roleBtn')
+    .forEach(function(btn){
+
+      btn.classList.remove(
+        'active'
+      );
+
+    });
+
+  button
+    .classList
+    .add(
+      'active'
+    );
+
+  document
+    .getElementById('roleInput')
+    .value =
+    role;
+
+  const other =
+    document
+      .getElementById('customRoleInput');
+
+  if(other){
+
+    other.style.display =
+      'none';
+
+    other.value =
+      '';
+
+  }
+
+}
+
+function clearRoleActive(){
+
+  document
+    .querySelectorAll('.roleBtn')
+    .forEach(function(btn){
+
+      btn.classList.remove(
+        'active'
+      );
+
+    });
+
+  document
+    .getElementById('roleInput')
+    .value =
+    '';
+
+  const other =
+    document
+      .getElementById('customRoleInput');
+
+  if(other){
+
+    other.style.display =
+      'none';
+
+    other.value =
+      '';
+
+  }
+
+}
+
+function pickCustomRole(button){
+
+  document
+    .querySelectorAll('.roleBtn')
+    .forEach(function(btn){
+
+      btn.classList.remove(
+        'active'
+      );
+
+    });
+
+  button
+    .classList
+    .add(
+      'active'
+    );
+
+  const input =
+    document
+      .getElementById('customRoleInput');
+
+  input.style.display =
+    'block';
+
+  input.focus();
+
+  document
+    .getElementById('roleInput')
+    .value =
+    input.value.trim();
+
+}
+
+/*
+========================================
+8. 送出簽到
+流程：
+- 讀取欄位
+- 檢查資料完整
+- 驗證 token
+- 驗證時間
+- 送到 Google Form
+- 顯示成功 / 失敗結果
+========================================
+*/
+
+function submitName(){
+
+  const name =
+    document
+      .getElementById('nameInput')
+      .value
+      .trim();
+
+  const emp =
+    document
+      .getElementById('empInput')
+      .value
+      .trim();
+
+  const role =
+    document
+      .getElementById('roleInput')
+      .value
+      .trim();
+
+  const course =
+    document
+      .getElementById('courseInput')
+      .value
+      .trim();
+
+  const date =
+    document
+      .getElementById('dateInput')
+      .value
+      .trim();
+
+  const token =
+    document
+      .getElementById('tokenInput')
+      .value
+      .trim();
+
+
+  /*
+  隱藏後台入口
+  */
+
+  if(
+    course === 'plasty'
+    &&
+    token === '1400'
+    &&
+    date === ''
+    &&
+    name === ''
+    &&
+    emp === ''
+  ){
+
+    window.top.location.href =
+      APP_ENTRY_URL +
+      '?page=adminplasty1400';
+
+    return;
+
+  }
+
+
+  /*
+  基本欄位檢查
+  */
+
+  if(!name || !course || !date || !token){
+
+    alert(
+      '請完整填寫姓名、會議名稱、時間與驗證碼'
+    );
+
+    return;
+
+  }
+
+  if(!emp){
+
+    alert(
+      '請輸入員工編號'
+    );
+
+    document
+      .getElementById('empInput')
+      .focus();
+
+    return;
+
+  }
+
+  if(!role){
+
+    alert(
+      '請選擇職級'
+    );
+
+    return;
+
+  }
+
+
+  /*
+  解析會議日期與會議名稱
+  course 格式：
+  5/24 晨會
+  */
+
+  const split =
+    course.indexOf(
+      ' '
+    );
+
+  const meetingDate =
+    split > 0
+    ? course.substring(
+        0,
+        split
+      )
+    : course;
+
+  const meetingTitle =
+    split > 0
+    ? course.substring(
+        split + 1
+      )
+    : course;
+
+
+  /*
+  驗證 token
+  */
+
+  const tokenValid =
+    token === EXPECTED_TOKEN;
+
+
+  /*
+  驗證簽到時間
+  可簽到範圍：
+  會議前 30 分鐘
+  到會議後 10 分鐘
+  */
+
+  const now =
+    new Date();
+
+  const md =
+    meetingDate.split('/');
+
+  const t =
+    date.split('-');
+
+  const s =
+    t[0].split(':');
+
+  const e =
+    t[1].split(':');
+
+  const start =
+    new Date(
+      now.getFullYear(),
+      Number(md[0]) - 1,
+      Number(md[1]),
+      Number(s[0]),
+      Number(s[1])
+    );
+
+  const end =
+    new Date(
+      now.getFullYear(),
+      Number(md[0]) - 1,
+      Number(md[1]),
+      Number(e[0]),
+      Number(e[1])
+    );
+
+  const timeValid =
+    now >= new Date(
+      start.getTime()
+      -
+      30 * 60 * 1000
+    )
+    &&
+    now <= new Date(
+      end.getTime()
+      +
+      10 * 60 * 1000
+    );
+
+  const valid =
+    tokenValid &&
+    timeValid;
+
+
+  /*
+  組合失敗原因
+  */
+
+  let reason =
+    '';
+
+  if(!tokenValid){
+
+    reason +=
+      '驗證碼錯誤<br>';
+
+  }
+
+  if(!timeValid){
+
+    reason +=
+      '未於課程期間簽到';
+
+  }
+
+
+  /*
+  簽到時間顯示
+  */
+
+  const signTime =
+    now.toLocaleString(
+      'zh-TW',
+      {
+        year:'numeric',
+        month:'2-digit',
+        day:'2-digit',
+        hour:'2-digit',
+        minute:'2-digit',
+        second:'2-digit',
+        hour12:false
+      }
+    );
+
+
+  /*
+  組成 Google Form 送出網址
+  */
+
+  const submitUrl =
+    '<?= formUrl ?>'.replace(
+      '/viewform',
+      '/formResponse'
+    )
+    +
+    '?<?= courseId ?>='
+    +
+    encodeURIComponent(
+      course
+    )
+    +
+    '&<?= dateId ?>='
+    +
+    encodeURIComponent(
+      date
+    )
+    +
+    '&<?= tokenId ?>='
+    +
+    encodeURIComponent(
+      token
+    )
+    +
+    '&<?= nameId ?>='
+    +
+    encodeURIComponent(
+      name
+    )
+    +
+    '&'
+    +
+    EMPLOYEE_ENTRY_ID
+    +
+    '='
+    +
+    encodeURIComponent(
+      emp
+    )
+    +
+    '&'
+    +
+    ROLE_ENTRY_ID
+    +
+    '='
+    +
+    encodeURIComponent(
+      role
+    );
+
+
+  /*
+  寫入 Google Form
+  */
+
+  fetch(
+    submitUrl,
+    {
+      method:'POST',
+      mode:'no-cors'
+    }
+  );
+
+
+  /*
+  顯示簽到結果
+  */
+
+  document.body.innerHTML =
+  `
+  <div style="
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    font-family:Arial,'Noto Sans TC';
+  ">
+    <div style="
+      max-width:520px;
+      width:100%;
+      padding:32px;
+      border-radius:18px;
+      background:${valid?'#fafafa':'#fff5f5'};
+      border:1px solid ${valid?'#ddd':'#f1c0c0'};
+      text-align:center;
+    ">
+      <div style="font-size:34px;font-weight:bold;margin-bottom:8px;">
+        ${meetingTitle}
+      </div>
+
+      <div style="font-size:22px;color:#666;margin-bottom:24px;">
+        ${meetingDate} ｜ ${date}
+      </div>
+
+      <div style="font-size:22px;color:#777;margin-bottom:8px;">
+        簽到人員
+      </div>
+
+      <div style="font-size:42px;font-weight:bold;margin-bottom:12px;">
+        ${name}
+      </div>
+
+      <div style="font-size:18px;color:#777;margin-bottom:28px;">
+        員工編號：${emp}
+      </div>
+
+      <div style="font-size:20px;color:#777;margin-bottom:8px;">
+        簽到時間
+      </div>
+
+      <div style="font-size:24px;margin-bottom:30px;">
+        ${signTime}
+      </div>
+
+      <div style="
+        font-size:38px;
+        font-weight:bold;
+        color:${valid?'#1a73e8':'#d32f2f'};
+      ">
+        ${valid?'簽到完成':'簽到失敗'}
+      </div>
+
+      ${
+        valid
+        ? ''
+        : `<div style="font-size:22px;color:#d32f2f;margin-top:18px;line-height:1.6;">
+            ${reason}
+          </div>`
+      }
+    </div>
+  </div>
+  `;
+
+}
+
+</script>
+</head>
+
+<body>
+
+  <div class="courseBox">
+    <label>會議名稱</label>
+    <input id="courseInput" value="<?= course ?>">
+
+    <label>會議時間</label>
+    <input id="dateInput" value="<?= date ?>">
+
+    <label>驗證碼</label>
+    <input
+      id="tokenInput"
+      type="password"
+      autocomplete="new-password"
+      readonly
+      onfocus="this.removeAttribute('readonly');"
+    >
+  </div>
+
+  <label>姓名</label>
+  <input
+    id="nameInput"
+    placeholder="請選擇或輸入姓名"
+    onfocus="handleNameFocus()"
+  >
+
+  <label>員工編號</label>
+  <input
+    id="empInput"
+    placeholder="點選下方姓名可自動帶入員工編號"
+    onfocus="handleEmpFocus()"
+    onblur="handleEmpBlur()"
+  >
+
+  <label>職級</label>
+  <input id="roleInput" type="hidden">
+
+  <div id="roleGrid">
+    <button type="button" class="roleBtn" data-role="VS" onclick="pickRole(this,'VS')">VS</button>
+    <button type="button" class="roleBtn" data-role="F" onclick="pickRole(this,'F')">Fellow</button>
+    <button type="button" class="roleBtn" data-role="R6" onclick="pickRole(this,'R6')">R6</button>
+    <button type="button" class="roleBtn" data-role="R5" onclick="pickRole(this,'R5')">R5</button>
+    <button type="button" class="roleBtn" data-role="R4" onclick="pickRole(this,'R4')">R4</button>
+    <button type="button" class="roleBtn" data-role="R3" onclick="pickRole(this,'R3')">R3</button>
+    <button type="button" class="roleBtn" data-role="R2" onclick="pickRole(this,'R2')">R2</button>
+    <button type="button" class="roleBtn" data-role="R1" onclick="pickRole(this,'R1')">R1</button>
+    <button type="button" class="roleBtn" data-role="PGY2" onclick="pickRole(this,'PGY2')">PGY2</button>
+    <button type="button" class="roleBtn" data-role="PGY1" onclick="pickRole(this,'PGY1')">PGY1</button>
+    <button type="button" class="roleBtn" data-role="Clerk" onclick="pickRole(this,'Clerk')">Clerk</button>
+    <button type="button" class="roleBtn" data-role="NP" onclick="pickRole(this,'NP')">NP</button>
+    <button type="button" class="roleBtn" data-role="秘書" onclick="pickRole(this,'秘書')">秘書</button>
+    <button type="button" class="roleBtn" data-role="OTHER" onclick="pickCustomRole(this)">自行輸入</button>
+  </div>
+
+  <input
+    id="customRoleInput"
+    type="text"
+    placeholder="請輸入職級"
+    style="
+      display:none;
+      width:100%;
+      box-sizing:border-box;
+      padding:16px;
+      margin-top:-8px;
+      margin-bottom:24px;
+      border:1px solid #d6dde7;
+      border-radius:14px;
+      font-size:20px;
+    "
+    oninput="
+      document
+        .getElementById('roleInput')
+        .value =
+        this.value.trim()
+    "
+  >
+
+  <button class="submit" onclick="submitName()">
+    送出
+  </button>
+
+  <div id="nameGrid"></div>
+
+</body>
+</html>

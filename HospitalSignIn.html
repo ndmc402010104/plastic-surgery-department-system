@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<style>
+body{
+  font-family:Arial,"Noto Sans TC";
+  background:#f5f7fb;
+  margin:0;
+  padding:24px;
+}
+
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:24px;
+}
+
+h1{
+  margin:0;
+  font-size:34px;
+}
+
+.homeBtn{
+  width:auto;
+  padding:12px 22px;
+  border-radius:14px;
+  border:1px solid #d6dde7;
+  background:#eef2f7;
+  color:#334155;
+  font-size:16px;
+  cursor:pointer;
+}
+
+.section{
+  background:white;
+  border:1px solid #e5e7eb;
+  border-radius:22px;
+  padding:28px;
+  margin-bottom:22px;
+  box-shadow:0 10px 30px rgba(15,23,42,.08);
+}
+
+h2{
+  margin-top:0;
+  font-size:24px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:14px;
+}
+
+.loginBtn{
+  padding:18px;
+  border-radius:16px;
+  border:1px solid #dbe4ff;
+  background:#eef2ff;
+  color:#1e293b;
+  font-size:20px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.loginBtn:hover{
+  background:#e3eaff;
+}
+
+.extraBtn{
+  background:#ecfdf5;
+  border-color:#bbf7d0;
+}
+
+.extraBtn:hover{
+  background:#dcfce7;
+}
+
+.manualRow{
+  display:flex;
+  gap:12px;
+}
+
+.manualRow input{
+  flex:1;
+  padding:16px;
+  border-radius:14px;
+  border:1px solid #cbd5e1;
+  font-size:20px;
+}
+
+.manualRow button{
+  width:160px;
+}
+
+@media(max-width:640px){
+  .header{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:12px;
+  }
+
+  .manualRow{
+    flex-direction:column;
+  }
+
+  .manualRow button{
+    width:100%;
+  }
+}
+</style>
+
+<script>
+const APP_ENTRY_URL =
+  '<?= appEntryUrl ?>';
+
+const staffList =
+  JSON.parse(
+    '<?!= staffList ?>'
+  );
+
+const extraList =
+  JSON.parse(
+    '<?!= extraList ?>'
+  );
+
+function goHome(){
+
+  window.top.location.href =
+    APP_ENTRY_URL;
+
+}
+
+function log(account,password){
+
+  document
+    .getElementById('accountId')
+    .value =
+    account;
+
+  document
+    .getElementById('passwordId')
+    .value =
+    password || '';
+
+  document
+    .getElementById('subBtn')
+    .click();
+
+}
+
+function manualLogin(){
+
+  const account =
+    document
+      .getElementById('manualAccount')
+      .value
+      .trim();
+
+  if(!account){
+    alert('請輸入員工編號');
+    return;
+  }
+
+  log(account,'');
+
+}
+
+function renderStaff(){
+
+  const vsBox =
+    document.getElementById('vsBox');
+
+  const residentBox =
+    document.getElementById('residentBox');
+
+  staffList.forEach(function(person){
+
+    if(person.name === '吳明娟'){
+      return;
+    }
+
+    const btn =
+      document.createElement('button');
+
+    btn.className =
+      'loginBtn';
+
+    btn.textContent =
+
+      (
+        person.role || ''
+      )
+
+      +
+
+      ' '
+
+      +
+
+      person.name;
+
+    btn.onclick =
+      function(){
+
+        log(
+          person.emp,
+          ''
+        );
+
+      };
+
+    if(
+      person.role === 'VS' ||
+      person.role === 'F' ||
+      person.role === 'Fellow'
+    ){
+      vsBox.appendChild(btn);
+    }else{
+      residentBox.appendChild(btn);
+    }
+
+  });
+
+}
+
+function renderExtra(){
+
+  const extraBox =
+    document.getElementById('extraBox');
+
+  extraList.forEach(function(person){
+
+    const btn =
+      document.createElement('button');
+
+    btn.className =
+      'loginBtn extraBtn';
+
+    btn.textContent =
+      person.title +
+      ' ' +
+      person.name;
+
+    btn.onclick =
+      function(){
+
+        log(
+          person.emp,
+          ''
+        );
+
+      };
+
+    extraBox.appendChild(btn);
+
+  });
+
+}
+
+function initPage(){
+
+  renderStaff();
+  renderExtra();
+
+}
+
+window.addEventListener(
+  'DOMContentLoaded',
+  initPage
+);
+</script>
+
+</head>
+
+<body>
+
+<div class="header">
+
+  <h1>醫院系統登入</h1>
+
+  <button
+    class="homeBtn"
+    onclick="goHome()"
+  >
+    ← 返回首頁
+  </button>
+
+</div>
+
+<div class="section">
+  <h2>主治醫師</h2>
+  <div
+    id="vsBox"
+    class="grid"
+  ></div>
+</div>
+
+<div class="section">
+  <h2>住院醫師&NP</h2>
+  <div
+    id="residentBox"
+    class="grid"
+  ></div>
+</div>
+
+<div class="section">
+  <h2>行政登入</h2>
+  <div
+    id="extraBox"
+    class="grid"
+  ></div>
+</div>
+
+<div class="section">
+  <h2>萬用登入</h2>
+
+  <div class="manualRow">
+    <input
+      id="manualAccount"
+      type="text"
+      placeholder="請輸入員工編號"
+      onkeydown="if(event.key==='Enter'){manualLogin();}"
+    >
+
+    <button
+      class="loginBtn"
+      onclick="manualLogin()"
+    >
+      登入
+    </button>
+  </div>
+</div>
+
+<form
+  style="display:none"
+  method="POST"
+  action="https://prod-eipn.skh.org.tw/nImgSys/FormWrite.aspx"
+  target="_blank"
+>
+
+  <input
+    type="text"
+    name="AccountID"
+    id="accountId"
+  >
+
+  <input
+    type="password"
+    name="PassWord"
+    id="passwordId"
+  >
+
+  <input name="ValidateCode">
+  <input name="Password_Length" value="1">
+  <input name="Password_Mode" value="0">
+  <input name="_AUTOWEB_PROJECT_" value="BPM_Plus">
+  <input name="_AUTOWEB_USER_ID_" value="Flow7">
+  <input name="_AUTOWEB_CODE_PAGE_" value="UTF-8">
+  <input name="_AUTOWEB_LANGUAGE_" value="zh-tw">
+  <input name="_AUTOWEB_PREV_PAGE_" value="https://prod-eipn.skh.org.tw/Main.aspx">
+  <input name="_AUTOWEB_COM_FILE_" value="Q3NtWFBFa0hCQXdoN0h6VHg1Nm9NNmRJcitvZjV4V0VWUXBCRFNadDNQY0tWSndPUThOVmk5S2hLTXVzaEhFMmpOQkxvMTlXM3V2dk1OSjkwRHUwTFJVaW9zdEpjenF5cEpLRWtFejkzdE09">
+  <input name="_AUTOWEB_QUERYTABLE_" value="TRUE">
+  <input name="uri" value="https://prod-eipn.skh.org.tw/EIP_MyPage.aspx">
+
+  <input
+    type="submit"
+    id="subBtn"
+  >
+
+</form>
+
+</body>
+</html>

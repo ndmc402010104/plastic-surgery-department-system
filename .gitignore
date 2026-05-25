@@ -1,0 +1,11 @@
+.clasp.json
+
+node_modules/
+
+.vscode/
+
+Config.local.gs
+
+.history/
+
+.DS_Store

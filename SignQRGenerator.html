@@ -1,0 +1,319 @@
+<html>
+
+<head>
+
+<style>
+
+body{
+  font-family:Arial,"Noto Sans TC";
+  background:#f5f7fb;
+  padding:24px;
+  margin:0;
+}
+
+.wrap{
+  max-width:980px;
+  margin:0 auto;
+}
+
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:28px;
+}
+
+h2{
+  margin:0;
+  font-size:28px;
+}
+
+.homeBtn{
+  width:auto;
+  padding:12px 22px;
+  font-size:16px;
+  border-radius:14px;
+  border:1px solid #d6dde7;
+  background:#eef2f7;
+  color:#334155;
+  cursor:pointer;
+}
+
+#course{
+  width:100%;
+  min-height:58px;
+  padding:0 56px 0 18px;
+  border-radius:16px;
+  border:1px solid #d6dde7;
+  font-size:18px;
+  line-height:1.4;
+  background:white;
+  box-sizing:border-box;
+}
+
+#course option{
+  font-size:16px;
+}
+
+.optionRow{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:18px;
+  margin:20px 0;
+}
+
+.optionRow input{
+  width:22px;
+  height:22px;
+}
+
+.mainBtn{
+  width:100%;
+  padding:18px;
+  font-size:22px;
+  font-weight:700;
+  border-radius:16px;
+  border:1px solid #d6dde7;
+  background:white;
+  cursor:pointer;
+}
+
+.mainBtn:hover,
+.homeBtn:hover{
+  background:#f8fafc;
+}
+
+#result{
+  margin-top:30px;
+  text-align:center;
+}
+
+#result img{
+  width:400px;
+  max-width:95%;
+  cursor:pointer;
+}
+
+@media(max-width:640px){
+
+  body{
+    padding:16px;
+  }
+
+  .header{
+    align-items:flex-start;
+    gap:14px;
+  }
+
+  h2{
+    font-size:24px;
+  }
+
+  #course{
+    font-size:16px;
+    min-height:54px;
+  }
+
+}
+
+</style>
+
+<script>
+
+  const APP_ENTRY_URL =
+    '<?= appEntryUrl ?>';
+
+  function goHome(){
+
+    window.top.location.href =
+      APP_ENTRY_URL;
+
+  }
+
+  function makeSignQR(){
+
+    const meeting =
+      getSelectedMeeting();
+
+    const signUrl =
+      buildSignQRUrl(
+        meeting
+      );
+
+    const qrUrl =
+      buildQRCodeImageUrl(
+        signUrl
+      );
+
+    renderSignQR(
+      signUrl,
+      qrUrl
+    );
+
+    const enablePopup =
+      document
+        .getElementById('popupQR')
+        .checked;
+
+    if(enablePopup){
+
+      openSignQRPopup(
+        signUrl,
+        qrUrl
+      );
+
+    }
+
+  }
+
+  function getSelectedMeeting(){
+
+    const raw =
+      decodeURIComponent(
+        document
+          .getElementById('course')
+          .value
+      );
+
+    const parts =
+      raw.split('||');
+
+    return {
+      course: parts[0],
+      date: parts[1],
+      token: parts[2]
+    };
+
+  }
+
+  function buildSignQRUrl(meeting){
+
+    return (
+      APP_ENTRY_URL +
+      '?page=signmeeting' +
+      '&course=' +
+      encodeURIComponent(meeting.course) +
+      '&date=' +
+      encodeURIComponent(meeting.date) +
+      '&token=' +
+      encodeURIComponent(meeting.token) +
+      '&v=' +
+      Date.now()
+    );
+
+  }
+
+  function buildQRCodeImageUrl(signUrl){
+
+    return (
+      'https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&margin=30&data=' +
+      encodeURIComponent(signUrl)
+    );
+
+  }
+
+  function renderSignQR(signUrl,qrUrl){
+
+    document
+      .getElementById('result')
+      .innerHTML =
+        '<h3>請掃描簽到</h3>' +
+        '<a href="' + signUrl + '" target="_blank">' +
+        '<img src="' + qrUrl + '">' +
+        '</a>';
+
+  }
+
+  function openSignQRPopup(signUrl,qrUrl){
+
+    const popup =
+      window.open(
+        '',
+        '_blank'
+      );
+
+    if(!popup){
+
+      alert(
+        '瀏覽器阻擋了新分頁，請允許彈出視窗。'
+      );
+
+      return;
+
+    }
+
+    popup.document.write(
+      '<html>' +
+      '<head>' +
+      '<title>簽到 QR</title>' +
+      '<style>' +
+      'body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:white;}' +
+      'img{max-width:95vw;max-height:95vh;cursor:pointer;}' +
+      '</style>' +
+      '</head>' +
+      '<body>' +
+      '<a href="' + signUrl + '" target="_blank">' +
+      '<img src="' + qrUrl + '">' +
+      '</a>' +
+      '</body>' +
+      '</html>'
+    );
+
+    popup.document.close();
+
+  }
+
+</script>
+
+</head>
+
+<body>
+
+<div class="wrap">
+
+  <div class="header">
+
+    <h2>
+      會議簽到 QR
+    </h2>
+
+    <button
+      class="homeBtn"
+      onclick="goHome()"
+    >
+      ← 返回首頁
+    </button>
+
+  </div>
+
+  <select id="course">
+    <?!= options ?>
+  </select>
+
+  <label class="optionRow">
+
+    <input
+      type="checkbox"
+      id="popupQR"
+      checked
+    >
+
+    自動彈出全螢幕 QR
+
+  </label>
+
+  <button
+    class="mainBtn"
+    onclick="makeSignQR()"
+  >
+    產生 QR
+  </button>
+
+  <div id="result"></div>
+
+</div>
+
+</body>
+
+</html>

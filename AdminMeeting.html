@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <style>
+    body{
+
+      font-family:
+        Arial,
+        "Noto Sans TC";
+
+      background:
+        #f5f7fb;
+
+      padding:
+        24px;
+
+      max-width:
+        1600px;
+
+      margin:
+        auto;
+
+    }
+
+    .header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      margin-bottom:28px;
+    }
+
+    .header h1{
+      margin:0;
+      font-size:34px;
+      letter-spacing:.02em;
+    }
+
+    .card{
+      background:rgba(255,255,255,.92);
+      padding:32px;
+      border-radius:22px;
+      box-shadow:0 10px 30px rgba(15,23,42,.07);
+      border:1px solid rgba(226,232,240,.9);
+      margin-bottom:22px;
+    }
+
+    .card h2{
+      margin-top:0;
+      margin-bottom:18px;
+      font-size:22px;
+    }
+
+    select{
+      width:100%;
+      box-sizing:border-box;
+      padding:16px;
+      font-size:18px;
+      border-radius:14px;
+      border:1px solid #cbd5e1;
+      background:white;
+      color:#172033;
+    }
+
+    button{
+      width:100%;
+      padding:17px 18px;
+      font-size:18px;
+      font-weight:700;
+      border-radius:16px;
+      border:1px solid transparent;
+      cursor:pointer;
+      transition:all .18s ease;
+      box-shadow:0 3px 10px rgba(15,23,42,.05);
+    }
+
+    button:hover{
+      transform:translateY(-2px);
+      box-shadow:0 12px 24px rgba(15,23,42,.09);
+    }
+
+    button:active{
+      transform:translateY(0);
+    }
+
+    .homeBtn{
+      width:auto;
+      padding:12px 22px;
+      background:#eef2f7;
+      color:#475569;
+      border:1px solid #d6dde7;
+      font-size:16px;
+      box-shadow:0 2px 8px rgba(15,23,42,.04);
+    }
+
+    .homeBtn:hover{
+      background:white;
+      color:#1e293b;
+    }
+
+    .buttonGroup{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      margin-top:20px;
+    }
+
+    .primaryBtn{
+      background:#eef2ff;
+      color:#334155;
+      border-color:#dbe4ff;
+    }
+
+    .primaryBtn:hover{
+      background:#e3eaff;
+      color:#1e293b;
+    }
+
+    .secondaryBtn{
+      background:#f8fafc;
+      color:#334155;
+      border-color:#e2e8f0;
+    }
+
+    .secondaryBtn:hover{
+      background:#f1f5f9;
+    }
+
+    .successBtn{
+      background:#eaf8ef;
+      color:#1f5133;
+      border-color:#cfead8;
+    }
+
+    .successBtn:hover{
+      background:#dff3e7;
+      color:#163b25;
+    }
+
+    .loading{
+      opacity:.8;
+      pointer-events:none;
+    }
+
+    .loading::before{
+      content:'';
+      width:18px;
+      height:18px;
+      margin-right:10px;
+      border:3px solid rgba(51,65,85,.25);
+      border-top:3px solid currentColor;
+      border-radius:50%;
+      display:inline-block;
+      vertical-align:middle;
+      animation:spin .8s linear infinite;
+    }
+
+    @keyframes spin{
+      from{transform:rotate(0deg);}
+      to{transform:rotate(360deg);}
+    }
+
+    .statusArea{
+      margin-bottom:18px;
+    }
+
+    .statusList{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-bottom:18px;
+    }
+
+    .statusRow{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:#f8fafc;
+      border:1px solid #e2e8f0;
+      font-size:16px;
+    }
+
+    .statusRow span{
+      margin-left:8px;
+      color:#64748b;
+    }
+    .statusTableWrap{
+      overflow-x:auto;
+      margin-bottom:18px;
+    }
+
+    .statusTable{
+
+      width:100%;
+
+      min-width:1200px;
+
+      border-collapse:collapse;
+
+    }
+
+    .statusTable td,
+    .statusTable th{
+
+      white-space:nowrap;
+
+    }
+
+    .statusTable input,
+    .statusTable select{
+      width:100%;
+      box-sizing:border-box;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #cbd5e1;
+      font-size:15px;
+    }
+
+    .miniBtn{
+      padding:10px 12px;
+      font-size:15px;
+      border-radius:10px;
+      background:#eef2ff;
+      color:#334155;
+      border:1px solid #dbe4ff;
+    }
+
+    .peopleToolbar{
+      display:flex;
+      justify-content:flex-end;
+      margin-bottom:12px;
+    }
+
+    .peopleToolbar button{
+      width:auto;
+      padding:10px 18px;
+      font-size:15px;
+    }
+
+    .peopleInput:disabled{
+      background:#f8fafc;
+      color:#334155;
+      border-color:transparent;
+    }
+
+    .statusTable input,
+    .statusTable select{
+      min-width:100px;
+    }
+
+    /* 刪除欄 */
+
+    .rowDeleteCell{
+      width:64px;
+    }
+
+    .deleteRowBtn{
+
+      display:none;
+
+      width:40px;
+      height:40px;
+
+      margin:auto;
+
+      padding:0;
+
+      border-radius:999px;
+
+      background:#fff5f5;
+
+      color:#dc2626;
+
+      border:1px solid #fecaca;
+
+      align-items:center;
+
+      justify-content:center;
+
+    }
+
+    /* 只有編輯模式顯示 */
+
+    .editingPeople .deleteRowBtn{
+      display:flex;
+    }
+
+    .deleteRowBtn:hover{
+      background:#ffe4e6;
+    }
+
+    .newRow{
+      background:#fafcff;
+    }
+
+    /* 標記刪除 */
+
+    .markedDelete{
+
+      opacity:.45;
+
+      background:#fff1f2 !important;
+
+    }
+
+    .markedDelete input,
+    .markedDelete select{
+
+      text-decoration:line-through;
+
+      color:#94a3b8;
+
+      pointer-events:none;
+
+    }
+
+    /* 但復原按鈕仍能按 */
+
+    .markedDelete .deleteRowBtn{
+
+      pointer-events:auto;
+
+      width:auto;
+
+      min-width:70px;
+
+      padding:8px 12px;
+
+      background:#f8fafc;
+
+      color:#475569;
+
+      border-color:#cbd5e1;
+
+    }
+
+    .loadingBox{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      padding:28px;
+      font-size:18px;
+      color:#64748b;
+    }
+
+    .loadingCircle{
+      width:22px;
+      height:22px;
+      border:3px solid #cbd5e1;
+      border-top-color:#64748b;
+      border-radius:50%;
+      animation:spin .8s linear infinite;
+    }
+
+    .deleteRowBtn:disabled,
+    #addPeopleRowBtn:disabled{
+
+      opacity: 0.35;
+
+      cursor: not-allowed;
+
+      pointer-events: none;
+
+      transform: none;
+
+    }
+
+    .deleteRowBtn:disabled:hover,
+    #addPeopleRowBtn:disabled:hover{
+
+      background: inherit;
+
+    }
+  </style>
+
+  <?!= include('AdminMeetingScript'); ?>
+
+
+</head>
+
+<body>
+
+<div class="header">
+
+  <h1>晨會管理後台</h1>
+
+  <button
+    class="homeBtn"
+    onclick="goHome()"
+  >
+    ← 返回首頁
+  </button>
+
+</div>
+
+
+<div class="card">
+
+  <h2>選擇會議</h2>
+
+  <select id="meetingSelect">
+    <option value="">讀取中...</option>
+  </select>
+
+</div>
+
+
+<div
+  id="statusArea"
+  class="statusArea"
+  style="display:none;"
+>
+</div>
+
+
+<div
+  class="card"
+  id="actionCard"
+  style="display:none;"
+>
+
+  <div class="buttonGroup">
+
+    <button
+      id="signBtn"
+      class="primaryBtn"
+      onclick="openSignEditor()"
+    >
+      📄 跳轉到簽到單編輯
+    </button>
+
+    <button
+      id="rawBtn"
+      class="secondaryBtn"
+      onclick="downloadRawExcel()"
+    >
+      📥 下載簽到原始檔
+    </button>
+
+    <button
+      id="uploadBtn"
+      class="successBtn"
+      onclick="downloadUploadExcel()"
+    >
+      ⬇️ 下載簽到上傳
+    </button>
+
+  </div>
+
+</div>
+
+
+<datalist id="staffNameList"></datalist>
+
+</body>
+</html>
