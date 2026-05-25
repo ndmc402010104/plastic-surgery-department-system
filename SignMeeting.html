@@ -140,16 +140,6 @@ const staffList =
 const EXPECTED_TOKEN =
   '<?= expectedToken ?>';
 
-const MEETING_RUNNING_BEFORE_MIN =
-  Number(
-    '<?= meetingRunningBeforeMin ?>'
-  );
-
-const MEETING_RUNNING_AFTER_MIN =
-  Number(
-    '<?= meetingRunningAfterMin ?>'
-  );
-
 /*
 ========================================
 2. 人員名單整理
@@ -736,13 +726,13 @@ function submitName(){
     now >= new Date(
       start.getTime()
       -
-      MEETING_RUNNING_BEFORE_MIN * 60 * 1000
+      30 * 60 * 1000
     )
     &&
     now <= new Date(
       end.getTime()
       +
-      MEETING_RUNNING_AFTER_MIN * 60 * 1000
+      10 * 60 * 1000
     );
 
   const valid =
@@ -1016,8 +1006,6 @@ function submitName(){
   </button>
 
   <div id="nameGrid"></div>
-
-<?!= getVersionBadgeHtml() ?>
 
 </body>
 </html>

@@ -29,10 +29,6 @@ const APP_ENTRY_URL =
 'https://script.google.com/macros/s/AKfycbzbMguO3DVRTFqtQupOlcAT7_u-o8V0YJV-xfrE3LJ7OthV_Tm65nDO4cmWoBwonH7G/exec';
 
 
-const APP_VERSION =
-'202605252044';
-
-
 
 // ========================================
 // Page Names
@@ -115,7 +111,7 @@ const ROLE_ENTRY_ID =
 
 
 // ========================================
-// Hospital Calendar
+// Calendar
 // 行事曆來源
 // ========================================
 
@@ -172,16 +168,6 @@ const QR_EVENT_LOOKAHEAD_DAYS =
 45;
 
 
-// ========================================
-// Admin Meeting Query
-// 後台會議顯示範圍
-// ========================================
-
-// 往後抓幾天
-const ADMIN_EVENT_LOOKAHEAD_DAYS =
-45;
-
-
 
 // ========================================
 // Meeting Active Window
@@ -194,11 +180,11 @@ const ADMIN_EVENT_LOOKAHEAD_DAYS =
 
 // 會議開始前可簽到（分鐘）
 const MEETING_RUNNING_BEFORE_MIN =
-30;
+10;
 
 // 會議結束後仍可簽到（分鐘）
 const MEETING_RUNNING_AFTER_MIN =
-10;
+30;
 
 
 
@@ -222,5 +208,3 @@ EMAIL_NOTIFY
 AUTO_EXPORT
 
 */
-
-//test

@@ -63,12 +63,6 @@ function showSignMeetingPage(e){
   template.appEntryUrl =
     APP_ENTRY_URL;
 
-  template.meetingRunningBeforeMin =
-    MEETING_RUNNING_BEFORE_MIN;
-
-  template.meetingRunningAfterMin =
-    MEETING_RUNNING_AFTER_MIN;
-
   template.staffList =
     JSON.stringify(
       getDefaultStaffList()

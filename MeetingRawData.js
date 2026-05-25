@@ -106,7 +106,6 @@ function copyRawData(course, date){
           reasons.includes('驗證失敗')
           ? '驗證失敗'
           : reasons.join('；'),
-        recorder: false,
         updatedAt: 0
       };
 
@@ -157,30 +156,6 @@ function copyRawData(course, date){
         const current =
           merged[name];
 
-        const recorder =
-          row[9] === true
-          ||
-          String(row[9]).toUpperCase() === 'TRUE';
-
-        if(
-          current
-          &&
-          recorder
-          &&
-          String(current.emp || '').trim() === String(row[4] || '').trim()
-          &&
-          String(current.role || '').trim() === String(row[5] || '').trim()
-          &&
-          String(current.status || '').trim() === String(row[7] || '').trim()
-        ){
-
-          current.recorder =
-            true;
-
-          return;
-
-        }
-
         if(
           current
           &&
@@ -191,29 +166,22 @@ function copyRawData(course, date){
 
         merged[name] = {
           signTime:
-            normalizeRawSignTime(
-              row[0]
-            ),
-          course:
-            course,
-          date:
-            date,
-          name:
-            row[3],
-          emp:
-            row[4],
-          role:
-            row[5],
-          token:
-            row[6] || '後台驗證',
-          status:
-            row[7],
-          reason:
-            row[7],
-          recorder:
-            recorder,
-          updatedAt:
-            updatedAt || Date.now()
+            row[6] === '後台驗證' && row[7] === '簽到成功'
+            ? normalizeRawSignTime(
+                String(row[2]).split('-')[1].trim()
+              )
+            : normalizeRawSignTime(
+                row[0]
+              ),
+          course: course,
+          date: date,
+          name: row[3],
+          emp: row[4],
+          role: row[5],
+          token: row[6] || '後台驗證',
+          status: row[7],
+          reason: row[7],
+          updatedAt: updatedAt || Date.now()
         };
 
       });
@@ -230,8 +198,7 @@ function copyRawData(course, date){
     '職級',
     '驗證碼',
     '狀態',
-    '失敗原因',
-    '紀錄者'
+    '失敗原因'
   ]];
 
   Object
@@ -247,8 +214,7 @@ function copyRawData(course, date){
         p.role,
         p.token,
         p.status,
-        p.reason,
-        p.recorder ? 'TRUE' : ''
+        p.reason
       ]);
 
     });
@@ -266,13 +232,12 @@ function copyRawData(course, date){
 
   target.setFrozenRows(1);
 
-  for(let c = 1; c <= 10; c++){
+  for(let c = 1; c <= 9; c++){
     target.setColumnWidth(c,150);
   }
 
   target.setColumnWidth(1,180);
   target.setColumnWidth(9,260);
-  target.setColumnWidth(10,120);
 
   SpreadsheetApp.flush();
 
@@ -389,79 +354,33 @@ function isSignTimeValid(
     );
 
   return (
-    signTime >= new Date(
-      start.getTime()
-      -
-      MEETING_RUNNING_BEFORE_MIN * 60 * 1000
-    )
+    signTime >= new Date(start.getTime() - 30 * 60 * 1000)
     &&
-    signTime <= new Date(
-      end.getTime()
-      +
-      MEETING_RUNNING_AFTER_MIN * 60 * 1000
-    )
+    signTime <= new Date(end.getTime() + 10 * 60 * 1000)
   );
 
 }
 
 function normalizeRawSignTime(value){
 
-  if(value instanceof Date){
-
-    return Utilities.formatDate(
-      value,
-      Session.getScriptTimeZone(),
-      'yyyy/MM/dd HH:mm:ss'
-    );
-
-  }
-
   const text =
     String(value || '').trim();
 
-  const dt =
-    new Date(text);
-
-  if(!isNaN(dt)){
-
-    return Utilities.formatDate(
-      dt,
-      Session.getScriptTimeZone(),
-      'yyyy/MM/dd HH:mm:ss'
-    );
-
-  }
-
   const match =
     text.match(
-      /^(\d{1,2}):(\d{2})(:\d{2})?$/
+      /^(\d{1,2}):(\d{2})$/
     );
 
-  if(match){
-
-    return (
-      Utilities.formatDate(
-        new Date(),
-        Session.getScriptTimeZone(),
-        'yyyy/MM/dd'
-      )
-      +
-      ' '
-      +
-      String(match[1]).padStart(2,'0')
-      +
-      ':'
-      +
-      match[2]
-      +
-      (
-        match[3]
-        || ':00'
-      )
-    );
-
+  if(!match){
+    return value;
   }
 
-  return text;
+  return (
+    String(match[1]).padStart(2,'0')
+    +
+    ':'
+    +
+    match[2]
+  );
 
 }
