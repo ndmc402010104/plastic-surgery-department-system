@@ -44,10 +44,10 @@ body{
 .shell{
   width:min(980px,100%);
   margin:0 auto;
-  padding:118px 24px 82px;
+  padding:96px 24px 82px;
 }
 
-.topbar{
+.appHeader{
   position:fixed;
   top:0;
   left:0;
@@ -57,7 +57,7 @@ body{
   align-items:center;
   justify-content:space-between;
   gap:18px;
-  height:88px;
+  height:76px;
   margin:0;
   padding:0 max(24px,calc((100vw - 980px) / 2 + 24px));
   box-sizing:border-box;
@@ -261,13 +261,13 @@ background:#f3f4f6;
 
 @media(max-width:820px){
   .shell{
-    padding:104px 16px 72px;
+    padding:92px 16px 72px;
   }
 
-  .topbar{
+  .appHeader{
     align-items:flex-start;
     justify-content:center;
-    height:88px;
+    height:76px;
     padding:0 16px;
   }
 
@@ -348,7 +348,7 @@ window.open(
 
 <main class="shell">
 
-<header class="topbar">
+<header class="appHeader">
 
 <div class="brand" onclick="window.top.location.href=APP_ENTRY_URL">
   <div class="brandMark">S</div>

@@ -135,7 +135,7 @@
       font-weight:800;
     }
 
-    .header h1{
+.appHeader h1{
       margin:0;
       font-size:34px;
       line-height:1.18;
@@ -368,6 +368,8 @@
     .statusTable th:nth-child(2),
     .statusTable td:nth-child(2){
       width:46px;
+  min-width:46px;
+  max-width:46px;
       text-align:center;
       overflow:visible;
     }
@@ -375,6 +377,8 @@
     .statusTable th:nth-child(3),
     .statusTable td:nth-child(3){
       width:44px;
+  min-width:44px;
+  max-width:44px;
       text-align:center;
     }
 
@@ -924,14 +928,14 @@
         padding:92px 14px 72px;
       }
 
-      .header{
+  .appHeader{
         align-items:flex-start;
         justify-content:center;
         height:76px;
         padding:0 14px;
       }
 
-      .header h1{
+  .appHeader h1{
         font-size:28px;
       }
 
@@ -980,7 +984,7 @@
 
 <body>
 
-<div class="header">
+<header class="appHeader">
 
   <div class="brand" onclick="goHome()">
     <div class="brandMark">S</div>
@@ -990,7 +994,7 @@
     </div>
   </div>
 
-</div>
+</header>
 
 <nav class="pageMap" aria-label="頁面地圖">
   <button class="pageMapLink" onclick="goHome()">後台首頁</button>
