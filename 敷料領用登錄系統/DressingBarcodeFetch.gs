@@ -5,17 +5,9 @@ const DRESSING_BARCODE_SHEET_NAME =
 '工作表1';
 
 const DRESSING_BARCODE_HEADERS = [
-  'createdAt',
-  'updatedAt',
   'barcode',
   'dressingName',
-  'size',
-  'materialCode',
-  'payType',
-  'vendor',
-  'note',
-  'active',
-  'updatedBy'
+  'size'
 ];
 
 function handleDressingBarcodeGet(e){
@@ -243,28 +235,12 @@ function saveDressingBarcode_(data){
     new Date();
 
   const rowData = {
-    createdAt: now,
-    updatedAt: now,
     barcode: barcode,
     dressingName: data.dressingName || '',
-    size: data.size || '',
-    materialCode: data.materialCode || '',
-    payType: data.payType || '',
-    vendor: data.vendor || '',
-    note: data.note || '',
-    active: data.active === false ? false : true,
-    updatedBy: data.updatedBy || ''
+    size: data.size || ''
   };
 
   if(targetRow > 0){
-
-    const oldCreatedAt =
-      sheet
-        .getRange(targetRow, headers.indexOf('createdAt') + 1)
-        .getValue();
-
-    rowData.createdAt =
-      oldCreatedAt || now;
 
     const row =
       headers.map(function(header){

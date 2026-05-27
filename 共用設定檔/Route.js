@@ -177,14 +177,12 @@ function isDressingBarcodeAction_(action){
 
 
 // 從 html 調用其他 html/script
-function include(filename){
-
-  return HtmlService
-    .createHtmlOutputFromFile(
-      filename
-    )
-    .getContent();
-
+function include(filename, args){
+  const template = HtmlService.createTemplateFromFile(filename);
+  if(args){
+    Object.assign(template, args);
+  }
+  return template.evaluate().getContent();
 }
 
 

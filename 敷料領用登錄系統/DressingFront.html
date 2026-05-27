@@ -26,61 +26,6 @@ max-width:1400px;
 margin:0 auto;
 }
 
-.appHeader{
-position:fixed;
-top:0;
-left:0;
-right:0;
-z-index:20;
-display:flex;
-align-items:center;
-justify-content:space-between;
-gap:18px;
-height:88px;
-margin:0;
-padding:0 max(24px,calc((100vw - 1400px) / 2 + 24px));
-box-sizing:border-box;
-border-bottom:1px solid #dbe4ef;
-background:rgba(248,251,255,.92);
-backdrop-filter:blur(10px);
-box-shadow:0 8px 24px rgba(15,23,42,.06);
-}
-
-.brand{
-display:flex;
-align-items:center;
-gap:14px;
-cursor:pointer;
-}
-
-.brandMark{
-width:46px;
-height:46px;
-display:grid;
-place-items:center;
-border-radius:14px;
-color:#ffffff;
-font-size:22px;
-font-weight:800;
-background:linear-gradient(135deg,#2563eb,#0f766e);
-box-shadow:0 12px 24px rgba(37,99,235,.2);
-}
-
-.brandText{
-display:grid;
-gap:2px;
-}
-
-.brandName{
-font-size:18px;
-font-weight:800;
-}
-
-.brandSub{
-color:#64748b;
-font-size:13px;
-}
-
 .pageHero{
 margin-bottom:24px;
 }
@@ -344,13 +289,6 @@ body{
 padding:104px 16px 72px;
 }
 
-.appHeader{
-align-items:flex-start;
-justify-content:center;
-height:88px;
-padding:0 16px;
-}
-
 .card{
 padding:18px;
 overflow-x:auto;
@@ -387,17 +325,7 @@ APP_ENTRY_URL;
 
 <main class="shell">
 
-<header class="appHeader">
-
-<div class="brand" onclick="goHome()">
-<div class="brandMark">S</div>
-<div class="brandText">
-<span class="brandName">新光整形外科科室系統</span>
-<span class="brandSub">敷料領用登錄</span>
-</div>
-</div>
-
-</header>
+<?!= include('共用設定檔/AppHeader', { subtitle: '敷料領用登錄', onClick: 'goHome()', maxWidth: '1400px' }) ?>
 
 <nav class="pageMap" aria-label="頁面地圖">
 <button class="pageMapLink" onclick="goHome()">首頁</button>
@@ -842,8 +770,7 @@ onclick="submitUse()">
     const saveResult =
     await saveBarcode({
     barcode: barcode,
-    dressingName: name,
-    active: true
+    dressingName: name
     });
 
     if(!saveResult.ok){
@@ -910,8 +837,7 @@ onclick="submitUse()">
     return callDressingBarcodeApi({
     action: 'saveDressingBarcode',
     barcode: data.barcode,
-    dressingName: data.dressingName,
-    active: true
+    dressingName: data.dressingName
     });
 
     }

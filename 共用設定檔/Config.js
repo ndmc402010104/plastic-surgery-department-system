@@ -38,7 +38,7 @@ const APP_DEFAULT_ENV =
 const SCRIPT_ID =
 '1TN6XHQNLXN6_x4780WEZbEf8IKGaY2t0MQu_F9jT1b2dbo7L3cRV2asQ';
 const APP_VERSION =
-'2.6.0-202605272245';
+'2.7.0-202605272318';
 
 
 
@@ -64,7 +64,7 @@ const SIGN_MEETING_PAGE_NAME =
 
 // 後台
 const ADMIN_INDEX_PAGE_NAME =
-'後台/後台簽到管理/AdminIndex';
+'後台/後台首頁/AdminIndex';
 
 const ADMIN_MEETING_PAGE_NAME =
 '後台/後台簽到管理/AdminMeeting';
