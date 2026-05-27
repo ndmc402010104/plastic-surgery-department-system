@@ -659,6 +659,11 @@ onclick="submitUse()">
             row.addEventListener('dragend', handleDragEnd);
             row.addEventListener('dragover', handleDragOver);
             row.addEventListener('drop', handleDrop);
+            
+            // 加入手機觸控支援
+            row.addEventListener('touchstart', handleTouchStart, {passive: false});
+            row.addEventListener('touchmove', handleTouchMove, {passive: false});
+            row.addEventListener('touchend', handleTouchEnd);
         });
     }
 
@@ -678,6 +683,10 @@ onclick="submitUse()">
             row.removeEventListener('dragend', handleDragEnd);
             row.removeEventListener('dragover', handleDragOver);
             row.removeEventListener('drop', handleDrop);
+            
+            row.removeEventListener('touchstart', handleTouchStart);
+            row.removeEventListener('touchmove', handleTouchMove);
+            row.removeEventListener('touchend', handleTouchEnd);
         });
 
         rows.sort((a, b) => {
@@ -763,6 +772,40 @@ onclick="submitUse()">
         return false;
     }
 
+    // --- 手機版專屬拖曳邏輯 ---
+    function handleTouchStart(e) {
+        if (!e.target.classList.contains('dragHandle')) return;
+        draggedRow = this;
+        this.classList.add('dragging');
+    }
+
+    function handleTouchMove(e) {
+        if (!draggedRow || draggedRow !== this) return;
+        e.preventDefault(); // 重要：拖曳時阻止手機畫面上下滾動
+        
+        const touch = e.touches[0];
+        const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (!targetElement) return;
+        
+        const targetRow = targetElement.closest('tr');
+        if (!targetRow || targetRow === draggedRow || targetRow.id === 'dictEmptyRow' || targetRow.parentNode !== draggedRow.parentNode) {
+            return;
+        }
+        
+        const rect = targetRow.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        
+        // 即時替換順序
+        targetRow.parentNode.insertBefore(draggedRow, touch.clientY < midpoint ? targetRow : targetRow.nextSibling);
+    }
+
+    function handleTouchEnd(e) {
+        if (!draggedRow) return;
+        this.classList.remove('dragging');
+        draggedRow = null;
+        checkOrderChanged();
+    }
+
     async function saveDictOrder() {
     const rows = document.querySelectorAll('#dictTbody tr:not(#dictEmptyRow)');
     const barcodes = [];
@@ -795,6 +838,10 @@ onclick="submitUse()">
         r.removeEventListener('dragend', handleDragEnd);
         r.removeEventListener('dragover', handleDragOver);
         r.removeEventListener('drop', handleDrop);
+        
+        r.removeEventListener('touchstart', handleTouchStart);
+        r.removeEventListener('touchmove', handleTouchMove);
+        r.removeEventListener('touchend', handleTouchEnd);
     });
     } else {
     alert('排序儲存失敗');
@@ -1542,7 +1589,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.10.5-202605280250</span>
+      <span>v.2.10.6-202605280255</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
