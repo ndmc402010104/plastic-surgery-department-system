@@ -529,12 +529,13 @@ onclick="submitUse()">
 <th style="width:180px;">條碼</th>
 <th>敷料名稱</th>
 <th style="width:140px;">規格/Size</th>
+<th style="width:140px;">料號</th>
 <th style="width:100px;">狀態</th>
 <th style="width:150px;">操作</th>
 </tr>
 </thead>
 <tbody id="dictTbody">
-<tr id="dictEmptyRow"><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">尚未掃描任何條碼，請點擊上方開啟掃描</td></tr>
+<tr id="dictEmptyRow"><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">尚未掃描任何條碼，請點擊上方開啟掃描</td></tr>
 </tbody>
 </table>
 </div>
@@ -591,7 +592,7 @@ onclick="submitUse()">
     document.getElementById('saveOrderBtn').style.display = 'none';
 
     const tbody = document.getElementById('dictTbody');
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">載入中...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">載入中...</td></tr>';
     
     try {
     const res = await listBarcode();
@@ -603,6 +604,7 @@ onclick="submitUse()">
     <td><input class="dict-barcode readonly" value="${item.barcode}" readonly></td>
     <td><input class="dict-name" value="${item.dressingName}"></td>
     <td><input class="dict-size" value="${item.size || ''}"></td>
+    <td><input class="dict-part-number" value="${item.partNumber || ''}"></td>
     <td><span class="dictStatus saved">已建檔</span></td>
     <td style="white-space:nowrap;">
     <span class="dragHandle">☰</span>
@@ -614,10 +616,10 @@ onclick="submitUse()">
     tbody.appendChild(tr);
     });
     } else {
-    tbody.innerHTML = '<tr id="dictEmptyRow"><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">目前尚無任何敷料資料</td></tr>';
+    tbody.innerHTML = '<tr id="dictEmptyRow"><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">目前尚無任何敷料資料</td></tr>';
     }
     } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#dc2626; padding:20px;">讀取失敗：' + (err.message || err) + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#dc2626; padding:20px;">讀取失敗：' + (err.message || err) + '</td></tr>';
     }
     }
 
@@ -806,6 +808,7 @@ onclick="submitUse()">
     const barcode = tr.querySelector('.dict-barcode').value.trim();
     const name = tr.querySelector('.dict-name').value.trim();
     const size = tr.querySelector('.dict-size').value.trim();
+    const partNumber = tr.querySelector('.dict-part-number').value.trim();
     const statusEl = tr.querySelector('.dictStatus');
 
     if (!name) {
@@ -820,7 +823,7 @@ onclick="submitUse()">
     btn.innerText = '...';
 
     try {
-    const res = await saveBarcode({ barcode: barcode, dressingName: name, size: size });
+    const res = await saveBarcode({ barcode: barcode, dressingName: name, size: size, partNumber: partNumber });
     if (res.ok) {
     statusEl.innerText = '已儲存';
     statusEl.className = 'dictStatus saved';
@@ -903,7 +906,7 @@ onclick="submitUse()">
     tr.remove();
     const tbody = document.getElementById('dictTbody');
     if (tbody.querySelectorAll('tr').length === 0) {
-    tbody.innerHTML = '<tr id="dictEmptyRow"><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">尚未掃描任何條碼，請點擊上方開啟掃描</td></tr>';
+    tbody.innerHTML = '<tr id="dictEmptyRow"><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">尚未掃描任何條碼，請點擊上方開啟掃描</td></tr>';
     }
     } else {
     alert('刪除失敗：' + (res.message || '未知錯誤'));
@@ -949,6 +952,7 @@ onclick="submitUse()">
     <td><input class="dict-barcode readonly" value="${barcode}" readonly></td>
     <td><input class="dict-name" placeholder="請輸入名稱"></td>
     <td><input class="dict-size" placeholder="請輸入尺寸"></td>
+    <td><input class="dict-part-number" placeholder="請輸入料號"></td>
     <td><span class="dictStatus">查詢中...</span></td>
     <td style="white-space:nowrap;">
     <span class="dragHandle">☰</span>
@@ -964,6 +968,7 @@ onclick="submitUse()">
     if (res.found) {
     tr.querySelector('.dict-name').value = res.data.dressingName || '';
     tr.querySelector('.dict-size').value = res.data.size || '';
+    tr.querySelector('.dict-part-number').value = res.data.partNumber || '';
     tr.querySelector('.dictStatus').innerText = '已建檔';
     tr.querySelector('.dictStatus').className = 'dictStatus saved';
     
@@ -1321,7 +1326,8 @@ onclick="submitUse()">
     action: 'saveDressingBarcode',
     barcode: data.barcode,
     dressingName: data.dressingName,
-    size: data.size
+    size: data.size,
+    partNumber: data.partNumber
     });
 
     }
@@ -1522,7 +1528,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.10.1-202605280239</span>
+      <span>v.2.10.2-202605280241</span>
     </div>
   `;
   document.body.appendChild(ghFooter);

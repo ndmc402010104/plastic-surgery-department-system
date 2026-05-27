@@ -7,7 +7,8 @@ const DRESSING_BARCODE_SHEET_NAME =
 const DRESSING_BARCODE_HEADERS = [
   'barcode',
   'dressingName',
-  'size'
+  'size',
+  'partNumber'
 ];
 
 function handleDressingBarcodeGet(e){
@@ -193,7 +194,8 @@ function lookupDressingBarcode_(barcode){
       data:{
         barcode:code,
         dressingName:'',
-        size:''
+        size:'',
+        partNumber:''
       }
     };
   }
@@ -231,7 +233,8 @@ function lookupDressingBarcode_(barcode){
     data:{
       barcode:code,
       dressingName:'',
-      size:''
+      size:'',
+      partNumber:''
     }
   };
 
@@ -281,7 +284,8 @@ function saveDressingBarcode_(data){
   const rowData = {
     barcode: barcode,
     dressingName: data.dressingName || '',
-    size: data.size || ''
+    size: data.size || '',
+    partNumber: data.partNumber || ''
   };
 
   const row =
@@ -351,7 +355,8 @@ function listDressingBarcode_(){
     data.push({
       barcode: barcode,
       dressingName: String(row[headers.indexOf('dressingName')] || ''),
-      size: String(row[headers.indexOf('size')] || '')
+      size: String(row[headers.indexOf('size')] || ''),
+      partNumber: String(row[headers.indexOf('partNumber')] || '')
     });
   }
 
