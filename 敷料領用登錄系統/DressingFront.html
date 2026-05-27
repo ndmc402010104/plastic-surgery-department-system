@@ -408,8 +408,8 @@ overflow-x: auto;
 
 let APP_ENTRY_URL = '<?= appEntryUrl ?>';
 
-// 如果在 GitHub 上，<?= ?> 不會被解析，需要使用真實的 Apps Script 網址來發送 API
-if (APP_ENTRY_URL.includes('<?=') || APP_ENTRY_URL.trim() === '') {
+// 如果在 GitHub 上，Apps Script 標籤不會被解析，需要使用真實的網址來發送 API
+if (APP_ENTRY_URL.includes('<' + '?=') || APP_ENTRY_URL.trim() === '') {
   // ★ 重要：請將下方網址替換成你真實的 Google Apps Script 部署網址 (結尾是 /exec) ★
   APP_ENTRY_URL = 'https://script.google.com/macros/s/AKfycb.../exec'; 
 }
