@@ -1,13 +1,21 @@
+<!DOCTYPE html>
 <html>
 
 <head>
 
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
 <style>
 
 body{
-  font-family:Arial,"Noto Sans TC";
-  background:#f5f7fb;
-  padding:24px;
+  font-family:Arial,"Noto Sans TC","Microsoft JhengHei",sans-serif;
+  color:#172033;
+  background:
+    radial-gradient(circle at top left,rgba(37,99,235,.1),transparent 30rem),
+    linear-gradient(180deg,#fbfdff 0%,#f4f7fb 100%);
+  padding:118px 24px 82px;
   margin:0;
 }
 
@@ -16,23 +24,118 @@ body{
   margin:0 auto;
 }
 
-.header{
+.appHeader{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:20;
   display:flex;
   justify-content:space-between;
   align-items:center;
-  margin-bottom:28px;
+  gap:18px;
+  height:88px;
+  margin:0;
+  padding:0 max(24px,calc((100vw - 980px) / 2 + 24px));
+  box-sizing:border-box;
+  border-bottom:1px solid #dbe4ef;
+  background:rgba(248,251,255,.92);
+  backdrop-filter:blur(10px);
+  box-shadow:0 8px 24px rgba(15,23,42,.06);
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  cursor:pointer;
+}
+
+.brandMark{
+  width:46px;
+  height:46px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  color:#ffffff;
+  font-size:22px;
+  font-weight:800;
+  background:linear-gradient(135deg,#2563eb,#0f766e);
+  box-shadow:0 12px 24px rgba(37,99,235,.2);
+}
+
+.brandText{
+  display:grid;
+  gap:2px;
+}
+
+.brandName{
+  font-size:18px;
+  font-weight:800;
+}
+
+.brandSub{
+  color:#64748b;
+  font-size:13px;
+}
+
+.pageHero{
+  margin-bottom:24px;
+}
+
+.pageMap{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:24px;
+  color:#64748b;
+  font-size:13px;
+  font-weight:700;
+}
+
+.pageMapLink{
+  border:0;
+  padding:0;
+  background:transparent;
+  color:#2563eb;
+  font:inherit;
+  cursor:pointer;
+}
+
+.pageMapCurrent{
+  color:#172033;
+}
+
+.pageMapSep{
+  color:#94a3b8;
+}
+
+.eyebrow{
+  margin:0 0 10px;
+  color:#1d4ed8;
+  font-size:13px;
+  font-weight:800;
 }
 
 h2{
   margin:0;
-  font-size:28px;
+  font-size:clamp(28px,4vw,42px);
+  line-height:1.18;
+  letter-spacing:0;
+}
+
+.pageLead{
+  margin:12px 0 0;
+  color:#475569;
+  font-size:16px;
+  line-height:1.7;
 }
 
 .homeBtn{
   width:auto;
   padding:12px 22px;
   font-size:16px;
-  border-radius:14px;
+  border-radius:8px;
   border:1px solid #d6dde7;
   background:#eef2f7;
   color:#334155;
@@ -43,7 +146,7 @@ h2{
   width:100%;
   min-height:58px;
   padding:0 56px 0 18px;
-  border-radius:16px;
+  border-radius:8px;
   border:1px solid #d6dde7;
   font-size:18px;
   line-height:1.4;
@@ -73,7 +176,7 @@ h2{
   padding:18px;
   font-size:22px;
   font-weight:700;
-  border-radius:16px;
+  border-radius:8px;
   border:1px solid #d6dde7;
   background:white;
   cursor:pointer;
@@ -98,12 +201,14 @@ h2{
 @media(max-width:640px){
 
   body{
-    padding:16px;
+    padding:104px 16px 72px;
   }
 
-  .header{
+  .appHeader{
     align-items:flex-start;
-    gap:14px;
+    justify-content:center;
+    height:88px;
+    padding:0 16px;
   }
 
   h2{
@@ -272,20 +377,29 @@ h2{
 
 <div class="wrap">
 
-  <div class="header">
+  <header class="appHeader">
 
-    <h2>
-      會議簽到 QR
-    </h2>
+    <div class="brand" onclick="goHome()">
+      <div class="brandMark">S</div>
+      <div class="brandText">
+        <span class="brandName">新光整形外科科室系統</span>
+        <span class="brandSub">簽到 QR 產生器</span>
+      </div>
+    </div>
 
-    <button
-      class="homeBtn"
-      onclick="goHome()"
-    >
-      ← 返回首頁
-    </button>
+  </header>
 
-  </div>
+  <nav class="pageMap" aria-label="頁面地圖">
+    <button class="pageMapLink" onclick="goHome()">首頁</button>
+    <span class="pageMapSep">/</span>
+    <span class="pageMapCurrent">簽到 QR 產生器</span>
+  </nav>
+
+  <section class="pageHero">
+    <p class="eyebrow">簽到工具</p>
+    <h2>會議簽到 QR</h2>
+    <p class="pageLead">選擇會議後產生簽到連結與 QR Code，供現場投影或列印使用。</p>
+  </section>
 
   <select id="course">
     <?!= options ?>

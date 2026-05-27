@@ -1,26 +1,124 @@
+<!DOCTYPE html>
 <html>
 <head>
+<base target="_top">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
 <style>
 body{
-  font-family:Arial,"Noto Sans TC";
-  padding:20px;
+  font-family:Arial,"Noto Sans TC","Microsoft JhengHei",sans-serif;
+  color:#172033;
+  background:
+    radial-gradient(circle at top left,rgba(37,99,235,.1),transparent 30rem),
+    linear-gradient(180deg,#fbfdff 0%,#f4f7fb 100%);
+  padding:118px 24px 82px;
   max-width:760px;
   margin:auto;
 }
 
+.appHeader{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:20;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:18px;
+  height:88px;
+  margin:0;
+  padding:0 max(24px,calc((100vw - 760px) / 2 + 24px));
+  box-sizing:border-box;
+  border-bottom:1px solid #dbe4ef;
+  background:rgba(248,251,255,.92);
+  backdrop-filter:blur(10px);
+  box-shadow:0 8px 24px rgba(15,23,42,.06);
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.brandMark{
+  width:46px;
+  height:46px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  color:#ffffff;
+  font-size:22px;
+  font-weight:800;
+  background:linear-gradient(135deg,#2563eb,#0f766e);
+  box-shadow:0 12px 24px rgba(37,99,235,.2);
+}
+
+.brandText{
+  display:grid;
+  gap:2px;
+}
+
+.brandName{
+  font-size:18px;
+  font-weight:800;
+}
+
+.brandSub{
+  color:#64748b;
+  font-size:13px;
+}
+
+.homeBtn{
+  width:auto;
+  padding:12px 22px;
+  border-radius:8px;
+  border:1px solid #d6dde7;
+  background:#eef2f7;
+  color:#334155;
+  font-size:16px;
+  cursor:pointer;
+}
+
+.pageHero{
+  margin-bottom:24px;
+}
+
+.eyebrow{
+  margin:0 0 10px;
+  color:#1d4ed8;
+  font-size:13px;
+  font-weight:800;
+}
+
+.pageTitle{
+  margin:0;
+  font-size:clamp(28px,4vw,42px);
+  line-height:1.18;
+}
+
+.pageLead{
+  margin:12px 0 0;
+  color:#475569;
+  font-size:16px;
+  line-height:1.7;
+}
+
 .courseBox{
-  padding:18px;
-  background:#f8f9fa;
-  border-radius:12px;
+  padding:22px;
+  background:#ffffff;
+  border:1px solid #dbe4ef;
+  border-radius:8px;
+  box-shadow:0 8px 24px rgba(15,23,42,.06);
   margin-bottom:18px;
 }
 
 label{
   display:block;
   font-size:16px;
-  color:#666;
+  color:#64748b;
   margin-bottom:6px;
 }
 
@@ -28,8 +126,10 @@ input,select{
   width:100%;
   box-sizing:border-box;
   padding:16px;
-  border:1px solid #ccc;
-  border-radius:10px;
+  border:1px solid #cbd5e1;
+  border-radius:8px;
+  background:#ffffff;
+  color:#172033;
 }
 
 #courseInput{
@@ -51,8 +151,8 @@ input,select{
   width:100%;
   padding:16px;
   border:0;
-  border-radius:10px;
-  background:#4f73d9;
+  border-radius:8px;
+  background:#2563eb;
   color:white;
   font-size:22px;
   margin-top:8px;
@@ -63,12 +163,19 @@ input,select{
   width:100%;
   padding:16px;
   font-size:22px;
-  border-radius:10px;
-  border:1px solid #bbb;
+  border-radius:8px;
+  border:1px solid #dbe4ef;
   background:white;
 }
 
 @media(max-width:520px){
+  .appHeader{
+    align-items:flex-start;
+    justify-content:center;
+    height:88px;
+    padding:0 16px;
+  }
+
   #courseInput{
     font-size:22px;
   }
@@ -98,7 +205,7 @@ input,select{
   padding:14px;
   font-size:18px;
   color:#506070;
-  border-radius:14px;
+  border-radius:8px;
   transition:.15s;
 }
 
@@ -107,9 +214,9 @@ input,select{
 }
 
 .roleBtn.active{
-  background:#4f73d9;
+  background:#2563eb;
   color:white;
-  border-color:#4f73d9;
+  border-color:#2563eb;
 }
 </style>
 
@@ -867,7 +974,7 @@ function submitName(){
       max-width:520px;
       width:100%;
       padding:32px;
-      border-radius:18px;
+      border-radius:8px;
       background:${valid?'#fafafa':'#fff5f5'};
       border:1px solid ${valid?'#ddd':'#f1c0c0'};
       text-align:center;
@@ -925,6 +1032,23 @@ function submitName(){
 </head>
 
 <body>
+
+  <header class="appHeader">
+    <div class="brand">
+      <div class="brandMark">S</div>
+      <div class="brandText">
+        <span class="brandName">新光整形外科科室系統</span>
+        <span class="brandSub">會議簽到</span>
+      </div>
+    </div>
+
+  </header>
+
+  <section class="pageHero">
+    <p class="eyebrow">簽到表單</p>
+    <div class="pageTitle">會議簽到</div>
+    <p class="pageLead">確認會議資訊，選擇姓名與職級後送出簽到。</p>
+  </section>
 
   <div class="courseBox">
     <label>會議名稱</label>
@@ -990,7 +1114,7 @@ function submitName(){
       margin-top:-8px;
       margin-bottom:24px;
       border:1px solid #d6dde7;
-      border-radius:14px;
+      border-radius:8px;
       font-size:20px;
     "
     oninput="

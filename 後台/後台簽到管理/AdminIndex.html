@@ -1,6 +1,10 @@
+<!DOCTYPE html>
 <html>
 
 <head>
+
+<base target="_top">
+<meta charset="UTF-8">
 
 <meta
 name="viewport"
@@ -18,16 +22,22 @@ body{
 
 font-family:
 Arial,
-"Noto Sans TC";
+"Noto Sans TC",
+"Microsoft JhengHei",
+sans-serif;
 
 background:
-#f7f8fb;
+radial-gradient(circle at top left,rgba(37,99,235,.1),transparent 30rem),
+linear-gradient(180deg,#fbfdff 0%,#f4f7fb 100%);
+
+color:
+#172033;
 
 margin:
 0;
 
 padding:
-28px;
+118px 28px 82px;
 
 }
 
@@ -44,10 +54,13 @@ auto;
 .title{
 
 font-size:
-42px;
+clamp(32px,4.6vw,52px);
 
 font-weight:
 700;
+
+line-height:
+1.12;
 
 margin-bottom:
 10px;
@@ -60,7 +73,7 @@ font-size:
 18px;
 
 color:
-#666;
+#64748b;
 
 margin:
 0;
@@ -68,6 +81,21 @@ margin:
 }
 
 .header{
+
+position:
+fixed;
+
+top:
+0;
+
+left:
+0;
+
+right:
+0;
+
+z-index:
+20;
 
 display:
 flex;
@@ -81,9 +109,103 @@ flex-start;
 gap:
 18px;
 
-margin-bottom:
-36px;
+height:
+88px;
 
+margin:
+0;
+
+padding:
+0 max(28px,calc((100vw - 960px) / 2 + 28px));
+
+box-sizing:
+border-box;
+
+border-bottom:
+1px solid #dbe4ef;
+
+background:
+rgba(248,251,255,.92);
+
+backdrop-filter:
+blur(10px);
+
+box-shadow:
+0 8px 24px rgba(15,23,42,.06);
+
+}
+
+.brand{
+display:flex;
+align-items:center;
+gap:14px;
+cursor:pointer;
+}
+
+.brandMark{
+width:46px;
+height:46px;
+display:grid;
+place-items:center;
+border-radius:14px;
+color:#ffffff;
+font-size:22px;
+font-weight:800;
+background:linear-gradient(135deg,#2563eb,#0f766e);
+box-shadow:0 12px 24px rgba(37,99,235,.2);
+}
+
+.brandText{
+display:grid;
+gap:2px;
+}
+
+.brandName{
+font-size:18px;
+font-weight:800;
+}
+
+.brandSub{
+color:#64748b;
+font-size:13px;
+}
+
+.pageHero{
+margin-bottom:28px;
+}
+
+.pageMap{
+display:flex;
+align-items:center;
+gap:8px;
+margin-bottom:24px;
+color:#64748b;
+font-size:13px;
+font-weight:700;
+}
+
+.pageMapLink{
+border:0;
+padding:0;
+background:transparent;
+color:#2563eb;
+font:inherit;
+cursor:pointer;
+}
+
+.pageMapCurrent{
+color:#172033;
+}
+
+.pageMapSep{
+color:#94a3b8;
+}
+
+.eyebrow{
+margin:0 0 10px;
+color:#1d4ed8;
+font-size:13px;
+font-weight:800;
 }
 
 .homeButton{
@@ -98,7 +220,7 @@ color:
 #475569;
 
 border-radius:
-14px;
+8px;
 
 padding:
 12px 18px;
@@ -144,6 +266,16 @@ rgba(
 
 }
 
+.utilityCard{
+cursor:
+pointer;
+}
+
+.utilityCard:hover{
+border-color:
+#2563eb;
+}
+
 .grid{
 
 display:
@@ -166,10 +298,10 @@ background:
 white;
 
 border:
-1px solid #e4e9f2;
+1px solid #dbe4ef;
 
 border-radius:
-22px;
+8px;
 
 padding:
 32px;
@@ -189,9 +321,9 @@ translateY(
 box-shadow:
 0 10px 30px
 rgba(
-0,
-0,
-0,
+15,
+23,
+42,
 0.08
 );
 
@@ -213,7 +345,7 @@ padding:
 .mainCard:hover{
 
 border-color:
-#4f73d9;
+#2563eb;
 
 }
 
@@ -272,7 +404,7 @@ font-size:
 14px;
 
 color:
-#999;
+#64748b;
 
 }
 
@@ -286,6 +418,13 @@ color:
 @media(
 max-width:720px
 ){
+
+body{
+
+padding:
+104px 16px 72px;
+
+}
 
 .grid{
 
@@ -310,15 +449,17 @@ font-size:
 
 .header{
 
-flex-direction:
-column;
+align-items:
+flex-start;
 
-}
+justify-content:
+center;
 
-.homeButton{
+height:
+88px;
 
-width:
-100%;
+padding:
+0 16px;
 
 }
 
@@ -407,34 +548,37 @@ APP_ENTRY_URL;
 
 <div class="header">
 
-<div>
+<div class="brand" onclick="goSystemHome()">
+<div class="brandMark">S</div>
+<div class="brandText">
+<span class="brandName">新光整形外科科室系統</span>
+<span class="brandSub">後台首頁</span>
+</div>
+</div>
+
+</div>
+
+<nav class="pageMap" aria-label="頁面地圖">
+<span class="pageMapCurrent">後台首頁</span>
+</nav>
+
+<section class="pageHero">
+
+<p class="eyebrow">管理功能</p>
 
 <div class="title">
 
-管理後台
+後台首頁
 
 </div>
 
+<p class="subtitle">
 
-<div class="subtitle">
+整形外科科室系統管理後台
 
-整形外科科室系統管理中心
+</p>
 
-</div>
-
-</div>
-
-
-<button
-class="homeButton"
-onclick="
-goSystemHome()
-"
->
-← 返回科室系統首頁
-</button>
-
-</div>
+</section>
 
 
 
@@ -467,6 +611,32 @@ goMeeting()
 修改簽到結果、補登與請假<br>
 
 匯出簽到單、原始資料與上傳檔案
+
+</div>
+
+</div>
+
+
+<!-- 返回科室首頁 -->
+
+<div
+class="
+card
+utilityCard
+"
+onclick="
+goSystemHome()
+">
+
+<div class="cardTitle">
+
+↩ 回科室系統首頁
+
+</div>
+
+<div class="cardDesc">
+
+返回前台功能入口。
 
 </div>
 
@@ -529,7 +699,7 @@ disabledCard
 
 <div class="footer">
 
-Morning Meeting System
+新光整形外科科室系統
 
 </div>
 
