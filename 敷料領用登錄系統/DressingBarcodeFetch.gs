@@ -18,6 +18,33 @@ const DRESSING_BARCODE_HEADERS = [
   'updatedBy'
 ];
 
+function doGet(e){
+
+  const data =
+    e.parameter || {};
+
+  const action =
+    data.action || '';
+
+  if(action === 'lookupDressingBarcode'){
+    return jsonOutput_(
+      lookupDressingBarcode_(data.barcode)
+    );
+  }
+
+  if(action === 'saveDressingBarcode'){
+    return jsonOutput_(
+      saveDressingBarcode_(data)
+    );
+  }
+
+  return jsonOutput_({
+    ok:false,
+    message:'unknown action'
+  });
+
+}
+
 function doPost(e){
 
   const data =

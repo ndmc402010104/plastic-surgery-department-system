@@ -768,9 +768,93 @@ onclick="submitUse()">
     if(scannerMode === 'lookup'){
 
     document.getElementById('barcodeLookupResult').innerText =
-    '掃描結果：' + barcode + '，查詢功能下一步接 Sheet';
+    '查詢中：' + barcode;
+
+    try{
+
+    const lookupUrl =
+    DRESSING_BARCODE_API
+    +
+    '?action=lookupDressingBarcode&barcode='
+    +
+    encodeURIComponent(barcode);
+
+    const response =
+    await fetch(lookupUrl);
+
+    const result =
+    await response.json();
+
+    if(result.found){
+
+    document.getElementById('barcodeLookupResult').innerText =
+    '已建檔：' + result.data.dressingName + '（' + barcode + '）';
 
     return;
+
+    }
+
+    const name =
+    prompt(
+    '新敷料，請輸入名稱',
+    barcode
+    );
+
+    if(!name){
+
+    document.getElementById('barcodeLookupResult').innerText =
+    '未建立：' + barcode;
+
+    return;
+
+    }
+
+    const saveUrl =
+    DRESSING_BARCODE_API
+    +
+    '?action=saveDressingBarcode'
+    +
+    '&barcode='
+    +
+    encodeURIComponent(barcode)
+    +
+    '&dressingName='
+    +
+    encodeURIComponent(name)
+    +
+    '&active=true';
+
+    const saveResponse =
+    await fetch(saveUrl);
+
+    const saveResult =
+    await saveResponse.json();
+
+    if(!saveResult.ok){
+
+    document.getElementById('barcodeLookupResult').innerText =
+    '建立失敗：' + (saveResult.message || barcode);
+
+    return;
+
+    }
+
+    document.getElementById('barcodeLookupResult').innerText =
+    '已建立：' + name + '（' + barcode + '）';
+
+    return;
+
+    }
+    catch(err){
+
+    console.log(err);
+
+    document.getElementById('barcodeLookupResult').innerText =
+    '查詢失敗：' + err.message;
+
+    return;
+
+    }
 
     }
 
