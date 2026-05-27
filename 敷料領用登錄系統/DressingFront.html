@@ -283,6 +283,77 @@ display:flex;
 justify-content:flex-end;
 }
 
+.dictArea {
+display: none;
+margin-top: 24px;
+padding-top: 24px;
+border-top: 1px solid #dbe4ef;
+}
+.dictHeader {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 14px;
+}
+.dictHeader h2 {
+margin: 0;
+font-size: 20px;
+}
+.dictToolbar {
+display: flex;
+gap: 10px;
+}
+.dictTable {
+width: 100%;
+border-collapse: collapse;
+margin-top: 10px;
+table-layout: auto;
+}
+.dictTable th, .dictTable td {
+border: 1px solid #dbe4ef;
+padding: 10px;
+text-align: left;
+vertical-align: middle;
+}
+.dictTable th {
+background: #f1f5f9;
+font-weight: bold;
+}
+.dictTable input {
+width: 100%;
+padding: 8px;
+border: 1px solid transparent;
+background: transparent;
+font-size: 15px;
+color: #172033;
+box-sizing: border-box;
+border-radius: 6px;
+pointer-events: none;
+transition: all .2s;
+}
+tr.editing input:not(.readonly) {
+border-color: #cbd5e1;
+background: #fff;
+pointer-events: auto;
+}
+tr.editing input:not(.readonly):focus {
+border-color: #2563eb;
+outline: none;
+box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+}
+.dictStatus {
+font-size: 14px;
+font-weight: bold;
+color: #64748b;
+}
+.dictStatus.saved { color: #15803d; }
+.dictStatus.error { color: #dc2626; }
+
+.dictActionBtn {
+padding: 6px 10px;
+font-size: 13px;
+}
+
 @media(max-width:720px){
 
 body{
@@ -298,6 +369,10 @@ overflow-x:auto;
 margin:24px auto;
 }
 
+.dictTableWrap {
+overflow-x: auto;
+}
+.dictTable { min-width: 600px; }
 }
 
 </style>
@@ -352,44 +427,10 @@ onclick="startUse()">
 <button
 type="button"
 class="primary"
-onclick="openBarcodeLookup()"
+onclick="openDressingDict()"
 style="margin-left:10px;">
 
-敷料查詢 📷
-
-</button>
-
-<div
-id="barcodeLookupResult"
-style="margin-top:14px;color:#475569;font-size:15px;">
-
-尚未查詢敷料
-
-</div>
-
-<div
-style="
-display:flex;
-gap:8px;
-margin-top:10px;
-align-items:center;
-">
-
-<input
-id="barcodeManualInput"
-placeholder="輸入條碼測試"
-style="
-flex:1;
-padding:10px;
-border:1px solid #cbd5e1;
-border-radius:8px;
-">
-
-<button
-type="button"
-onclick="manualBarcodeLookup()">
-
-查詢
+敷料建檔 📷
 
 </button>
 
@@ -433,6 +474,35 @@ onclick="submitUse()">
 
 </div>
 
+<div id="dictArea" class="dictArea">
+<div class="dictHeader">
+<h2>敷料條碼建檔清單</h2>
+<div class="dictToolbar">
+<button type="button" class="primary" onclick="startDictScanner()">開啟掃描 📷</button>
+</div>
+</div>
+<div style="display:flex; gap:8px; margin-bottom:14px;">
+<input id="dictManualInput" placeholder="手動輸入條碼測試" style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:8px;">
+<button type="button" onclick="manualDictScan()">加入清單</button>
+</div>
+<div class="dictTableWrap">
+<table class="dictTable" id="dictTable">
+<thead>
+<tr>
+<th style="width:180px;">條碼</th>
+<th>敷料名稱</th>
+<th style="width:140px;">規格/Size</th>
+<th style="width:100px;">狀態</th>
+<th style="width:150px;">操作</th>
+</tr>
+</thead>
+<tbody id="dictTbody">
+<tr id="dictEmptyRow"><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">尚未掃描任何條碼，請點擊上方開啟掃描</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
 </div>
 
 <div id="scannerOverlay" class="scannerOverlay">
@@ -469,23 +539,136 @@ onclick="submitUse()">
 
     }
 
-    function openBarcodeLookup(){
+    function openDressingDict(){
+    document.getElementById('formArea').style.display = 'none';
+    document.getElementById('dictArea').style.display = 'block';
+    }
 
-    scannerMode = 'lookup';
-    activeDressingInput = null;
+    function editDictRow(btn) {
+    const tr = btn.closest('tr');
+    tr.classList.add('editing');
+    tr.querySelector('.edit-btn').style.display = 'none';
+    tr.querySelector('.save-btn').style.display = 'inline-block';
+    tr.querySelector('.dict-name').focus();
+    }
 
-    document.getElementById('barcodeLookupResult').innerText =
-    '正在開啟相機掃描敷料條碼...';
+    async function saveDictRow(btn) {
+    const tr = btn.closest('tr');
+    const barcode = tr.querySelector('.dict-barcode').value.trim();
+    const name = tr.querySelector('.dict-name').value.trim();
+    const size = tr.querySelector('.dict-size').value.trim();
+    const statusEl = tr.querySelector('.dictStatus');
 
+    if (!name) {
+    statusEl.innerText = '缺少名稱';
+    statusEl.className = 'dictStatus error';
+    return;
+    }
+
+    statusEl.innerText = '儲存中...';
+    statusEl.className = 'dictStatus';
+    btn.disabled = true;
+    btn.innerText = '...';
+
+    try {
+    const res = await saveBarcode({ barcode: barcode, dressingName: name, size: size });
+    if (res.ok) {
+    statusEl.innerText = '已儲存';
+    statusEl.className = 'dictStatus saved';
+    tr.classList.remove('editing');
+    tr.querySelector('.save-btn').style.display = 'none';
+    tr.querySelector('.edit-btn').style.display = 'inline-block';
+    } else {
+    statusEl.innerText = '儲存失敗';
+    statusEl.className = 'dictStatus error';
+    }
+    } catch(err) {
+    statusEl.innerText = '儲存錯誤';
+    statusEl.className = 'dictStatus error';
+    }
+
+    btn.disabled = false;
+    btn.innerText = '儲存';
+    }
+
+    function deleteDictRow(btn) {
+    if (confirm('確定要移除此列嗎？')) {
+    btn.closest('tr').remove();
+    const tbody = document.getElementById('dictTbody');
+    if (tbody.querySelectorAll('tr').length === 0) {
+    tbody.innerHTML = '<tr id="dictEmptyRow"><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">尚未掃描任何條碼，請點擊上方開啟掃描</td></tr>';
+    }
+    }
+    }
+
+    function startDictScanner() {
+    scannerMode = 'dict';
     document.getElementById('scannerOverlay').style.display = 'block';
-
     startDressingScanner();
+    }
 
+    async function manualDictScan() {
+    const barcode = document.getElementById('dictManualInput').value.trim();
+    if(!barcode) return;
+    document.getElementById('dictManualInput').value = '';
+    scannerMode = 'dict';
+    await handleBarcodeScanResult(barcode);
+    }
+
+    async function addDictRow(barcode) {
+    const emptyRow = document.getElementById('dictEmptyRow');
+    if (emptyRow) emptyRow.remove();
+
+    const existingInput = document.querySelector(`input.dict-barcode[value="${barcode}"]`);
+    if (existingInput) {
+    alert('此條碼已在清單中');
+    existingInput.closest('tr').querySelector('.dict-name').focus();
+    return;
+    }
+
+    const tr = document.createElement('tr');
+    tr.classList.add('editing'); // 預設新掃描的進入編輯模式
+    tr.innerHTML = `
+    <td><input class="dict-barcode readonly" value="${barcode}" readonly></td>
+    <td><input class="dict-name" placeholder="請輸入名稱"></td>
+    <td><input class="dict-size" placeholder="請輸入尺寸"></td>
+    <td><span class="dictStatus">查詢中...</span></td>
+    <td style="white-space:nowrap;">
+    <button type="button" class="dictActionBtn edit-btn" style="display:none;" onclick="editDictRow(this)">編輯</button>
+    <button type="button" class="dictActionBtn save-btn primary" onclick="saveDictRow(this)">儲存</button>
+    <button type="button" class="dictActionBtn danger" onclick="deleteDictRow(this)">刪除</button>
+    </td>
+    `;
+    document.getElementById('dictTbody').prepend(tr);
+
+    try {
+    const res = await lookupBarcode(barcode);
+    if (res.found) {
+    tr.querySelector('.dict-name').value = res.data.dressingName || '';
+    tr.querySelector('.dict-size').value = res.data.size || '';
+    tr.querySelector('.dictStatus').innerText = '已建檔';
+    tr.querySelector('.dictStatus').className = 'dictStatus saved';
+    
+    // 已存在的條碼，自動關閉編輯模式
+    tr.classList.remove('editing');
+    tr.querySelector('.save-btn').style.display = 'none';
+    tr.querySelector('.edit-btn').style.display = 'inline-block';
+    } else {
+    tr.querySelector('.dictStatus').innerText = '新條碼';
+    tr.querySelector('.dictStatus').className = 'dictStatus';
+    tr.querySelector('.dict-name').focus();
+    }
+    } catch (err) {
+    tr.querySelector('.dictStatus').innerText = '查詢失敗';
+    tr.querySelector('.dictStatus').className = 'dictStatus error';
+    tr.querySelector('.dict-name').focus();
+    }
     }
 
     function startUse(){
 
     document.getElementById('formArea').style.display = 'block';
+    document.getElementById('dictArea').style.display = 'none';
 
     document.getElementById('useDateTime').value =
     new Date().toLocaleString('zh-TW');
@@ -698,101 +881,18 @@ onclick="submitUse()">
 
     }
 
-    async function manualBarcodeLookup(){
-
-    const barcode =
-    document
-    .getElementById('barcodeManualInput')
-    .value
-    .trim();
-
-    if(!barcode){
-
-    alert('請輸入條碼');
-    return;
-
-    }
-
-    scannerMode = 'lookup';
-
-    await handleBarcodeScanResult(barcode);
-
-    }
-
     async function handleBarcodeScanResult(barcode){
 
     if(scannerMode === 'row'){
-
     if(activeDressingInput){
     activeDressingInput.value = barcode;
     }
-
-    return;
-
-    }
-
-    if(scannerMode !== 'lookup'){
     return;
     }
 
-    document.getElementById('barcodeLookupResult').innerText =
-    '查詢中：' + barcode;
-
-    try{
-
-    const result =
-    await lookupBarcode(barcode);
-
-    if(result.found){
-
-    document.getElementById('barcodeLookupResult').innerText =
-    '已建檔：' + result.data.dressingName + '（' + barcode + '）';
-
+    if(scannerMode === 'dict'){
+    await addDictRow(barcode);
     return;
-
-    }
-
-    const name =
-    prompt(
-    '新敷料，請輸入名稱',
-    barcode
-    );
-
-    if(!name){
-
-    document.getElementById('barcodeLookupResult').innerText =
-    '未建立：' + barcode;
-
-    return;
-
-    }
-
-    const saveResult =
-    await saveBarcode({
-    barcode: barcode,
-    dressingName: name
-    });
-
-    if(!saveResult.ok){
-
-    document.getElementById('barcodeLookupResult').innerText =
-    '建立失敗：' + (saveResult.message || barcode);
-
-    return;
-
-    }
-
-    document.getElementById('barcodeLookupResult').innerText =
-    '已建立：' + name + '（' + barcode + '）';
-
-    }
-    catch(err){
-
-    console.log(err);
-
-    document.getElementById('barcodeLookupResult').innerText =
-    '查詢失敗：' + err.message;
-
     }
 
     }
@@ -837,7 +937,8 @@ onclick="submitUse()">
     return callDressingBarcodeApi({
     action: 'saveDressingBarcode',
     barcode: data.barcode,
-    dressingName: data.dressingName
+    dressingName: data.dressingName,
+    size: data.size
     });
 
     }
@@ -1022,6 +1123,7 @@ onclick="submitUse()">
 </main>
 
 <?!= versionBadgeHtml ?>
+<?!= getVersionBadgeHtml() ?>
 
 </body>
 
