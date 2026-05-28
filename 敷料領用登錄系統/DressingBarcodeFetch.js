@@ -135,9 +135,34 @@ function handleDressingBarcodePost(e){
 }
 
 function normalizeDressingCode_(value){
-  return String(value || '')
-    .replace(/[\x00-\x1F\x7F]/g, '')
-    .trim();
+
+  let code =
+    String(value || '')
+      .replace(/[\x00-\x1F\x7F]/g, '')
+      .replace(/\s+/g, '')
+      .trim();
+
+  /*
+    GTIN 常見：
+    13碼 EAN
+    14碼 GTIN
+
+    前面補0視為同一碼
+  */
+
+  if(/^\d+$/.test(code)){
+
+    /*
+      全部左補到14碼
+    */
+
+    code =
+      code.padStart(14, '0');
+
+  }
+
+  return code;
+
 }
 
 function normalizeDressingText_(value){
