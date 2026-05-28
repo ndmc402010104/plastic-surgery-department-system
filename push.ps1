@@ -1,5 +1,5 @@
 ﻿param(
-  [ValidateSet('ask','push','deploy')]
+  [ValidateSet('ask','push','push-github','deploy')]
   [string]$Action = 'ask',
 
   [ValidateSet('ask','major','minor','patch','none')]
@@ -197,7 +197,11 @@ function Push-GitHubIfRequested {
     [string]$Action
   )
 
-  if ($NoGitHubPrompt) {
+  if ($NoGitHubPrompt -or $Action -eq 'push') {
+    if ($Action -eq 'push') {
+      Write-Host ""
+      Write-Host "依據選項，略過上傳 GitHub。" -ForegroundColor Yellow
+    }
     return
   }
 
@@ -209,29 +213,17 @@ function Push-GitHubIfRequested {
 
   $defaultMsg = if ($Config) { "Bump version to v$($Config.Version)" } else { "Update version" }
   
-  if ($Action -eq 'deploy') {
-    $commitMessage =
-      Read-Host "Git commit message（直接按 Enter 使用 '$defaultMsg'，輸入 skip 略過）"
+  $commitMessage =
+    Read-Host "Git commit message（直接按 Enter 使用 '$defaultMsg'，輸入 skip 略過）"
 
-    if ($commitMessage.Trim().ToLower() -eq 'skip') {
-      Write-Host ""
-      Write-Host "已略過 GitHub commit" -ForegroundColor Yellow
-      return
-    }
-
-    if ([string]::IsNullOrWhiteSpace($commitMessage)) {
-      $commitMessage = $defaultMsg
-    }
+  if ($commitMessage.Trim().ToLower() -eq 'skip') {
+    Write-Host ""
+    Write-Host "已略過 GitHub commit" -ForegroundColor Yellow
+    return
   }
-  else {
-    $commitMessage =
-      Read-Host "Git commit message（直接按 Enter 略過上傳 GitHub，輸入內容則進行 commit）"
 
-    if ([string]::IsNullOrWhiteSpace($commitMessage)) {
-      Write-Host ""
-      Write-Host "已略過 GitHub commit" -ForegroundColor Yellow
-      return
-    }
+  if ([string]::IsNullOrWhiteSpace($commitMessage)) {
+    $commitMessage = $defaultMsg
   }
 
   if (-not (Test-CommandExists -Name 'git')) {
@@ -288,11 +280,15 @@ if ($env:APP_VERSION_BUMP) {
 if ($Action -eq 'ask') {
   Write-Host ""
   $Action = Read-MenuChoice `
-    -Message "這次要做什麼？P=push 測試版，D=deploy 正式版 [P]" `
+    -Message "這次要做什麼？1=僅推送測試版(不傳GitHub)，2=推送測試版並傳GitHub，3=Deploy正式版(傳GitHub) [1]" `
     -Choices @{
+      '1' = 'push'
+      '2' = 'push-github'
+      '3' = 'deploy'
       'p' = 'push'
       'push' = 'push'
-      'test' = 'push'
+      'pg' = 'push-github'
+      'push-github' = 'push-github'
       'd' = 'deploy'
       'deploy' = 'deploy'
       'prod' = 'deploy'
