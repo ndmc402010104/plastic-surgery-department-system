@@ -699,7 +699,6 @@ onclick="submitUse()">
     <td style="white-space:nowrap;">
     <span class="dragHandle">☰</span>
     <button type="button" class="dictActionBtn edit-btn" onclick="editDictRow(this)">編輯</button>
-    <button type="button" class="dictActionBtn save-btn primary" style="display:none;" onclick="saveDictRow(this)">儲存</button>
     <button type="button" class="dictActionBtn danger" onclick="deleteDictRow(this)">刪除</button>
     <div class="dictStatus saved" style="font-size:12px; margin-top:4px;">已建檔</div>
     </td>
@@ -966,20 +965,26 @@ onclick="submitUse()">
     }
 
     function updateDictRowEditButtons(tr){
-    const saveBtn = tr.querySelector('.save-btn');
     const editBtn = tr.querySelector('.edit-btn');
     const dirty = isDictRowDirty(tr);
 
     tr.dataset.dirty = dirty ? '1' : '0';
 
-    if(saveBtn){
-    saveBtn.style.display = dirty ? 'inline-block' : 'none';
-    saveBtn.disabled = !dirty;
-    }
-
     if(editBtn){
     editBtn.style.display = 'inline-block';
-    editBtn.innerText = tr.classList.contains('editing') ? '返回' : '編輯';
+
+    if(tr.classList.contains('editing')){
+    editBtn.innerText = dirty ? '儲存' : '返回';
+
+    if(dirty){
+    editBtn.classList.add('primary');
+    } else {
+    editBtn.classList.remove('primary');
+    }
+    } else {
+    editBtn.innerText = '編輯';
+    editBtn.classList.remove('primary');
+    }
     }
     }
 
@@ -1043,19 +1048,16 @@ onclick="submitUse()">
     delete tr.dataset.isNewRow;
     delete tr.dataset.dirty;
 
-    const saveBtn = tr.querySelector('.save-btn');
     const editBtn = tr.querySelector('.edit-btn');
-
-    if(saveBtn){
-    saveBtn.style.display = 'none';
-    saveBtn.disabled = false;
-    saveBtn.innerText = '儲存';
-    }
 
     if(editBtn){
     editBtn.style.display = 'inline-block';
     editBtn.innerText = '編輯';
+    editBtn.classList.remove('primary');
+    editBtn.disabled = false;
     }
+
+    updateDictRowEditButtons(tr);
     }
 
     function editDictRow(btn) {
@@ -1063,10 +1065,8 @@ onclick="submitUse()">
 
     if(tr.classList.contains('editing')){
     if(isDictRowDirty(tr)){
-    const ok = confirm('目前有未儲存變更，確定要返回並放棄修改嗎？');
-    if(!ok){
+    saveDictRow(btn);
     return;
-    }
     }
 
     restoreDictRowSnapshot(tr);
@@ -1089,6 +1089,7 @@ onclick="submitUse()">
     updateDictRowEditButtons(tr);
     tr.querySelector('.dict-name').focus();
     }
+
     async function saveDictRow(btn) {
     const tr = btn.closest('tr');
     const hospitalCode = tr.querySelector('.dict-hospital-code').value.trim();
@@ -1116,8 +1117,6 @@ onclick="submitUse()">
     statusEl.className = 'dictStatus error';
     return;
     }
-
-    // 盒裝數量可以先略過，之後再補。
 
     if (isBoxMode && tr.dataset.boxMergeMode === 'existing' && !mergeExistingKey) {
     statusEl.innerText = '請選擇要合併的既有敷料，或改選「先暫存盒裝」';
@@ -1171,7 +1170,13 @@ onclick="submitUse()">
     }
 
     btn.disabled = false;
-    btn.innerText = '儲存';
+
+    if(tr.classList.contains('editing')){
+    updateDictRowEditButtons(tr);
+    } else {
+    btn.innerText = '編輯';
+    btn.classList.remove('primary');
+    }
     }
 
 
@@ -1192,9 +1197,9 @@ onclick="submitUse()">
 
     // 依序執行，避免同時寫入導致 Google Sheet 衝突
     for (const tr of editingRows) {
-    const saveBtn = tr.querySelector('.save-btn');
-    if (saveBtn) {
-    await saveDictRow(saveBtn);
+    const mainBtn = tr.querySelector('.edit-btn');
+    if (mainBtn && isDictRowDirty(tr)) {
+    await saveDictRow(mainBtn);
     if (!tr.classList.contains('editing')) {
     successCount++;
     } else {
@@ -1596,8 +1601,7 @@ onclick="submitUse()">
     <td><input class="dict-status" value="使用中" placeholder="使用中 / 試用 / 停用"></td>
     <td style="white-space:nowrap;">
     <span class="dragHandle">☰</span>
-    <button type="button" class="dictActionBtn edit-btn" style="display:none;" onclick="editDictRow(this)">編輯</button>
-    <button type="button" class="dictActionBtn save-btn primary" onclick="saveDictRow(this)">儲存</button>
+    <button type="button" class="dictActionBtn edit-btn primary" onclick="editDictRow(this)">儲存</button>
     <button type="button" class="dictActionBtn danger" onclick="deleteDictRow(this)">刪除</button>
     <div class="dictStatus" style="font-size:12px; margin-top:4px;">查詢中...</div>
     <div class="scanMeta">掃描GTIN：${escapeHtml(scannedGtin)}${parsed && parsed.lot ? '<br>批號：' + escapeHtml(parsed.lot) : ''}${parsed && parsed.exp ? '<br>效期：' + escapeHtml(parsed.exp) : ''}</div>
@@ -2303,7 +2307,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.14.1-202605290122</span>
+      <span>v.2.14.2-202605290132</span>
     </div>
   `;
   document.body.appendChild(ghFooter);

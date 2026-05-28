@@ -1,6 +1,9 @@
 const DRESSING_BARCODE_SHEET_ID =
 '1SJIQGgViQo6AhSDvJTNcNDx_KNXEjgTMfJh4R9SIMvk';
 
+const DRESSING_MASTER_SHEET_GID =
+1319808727;
+
 const DRESSING_MASTER_SHEET_NAME =
 '敷料主檔';
 
@@ -51,17 +54,11 @@ function handleDressingBarcodeGet(e){
     }
 
     if(action === 'findDressingPairCandidates'){
-      return apiOutput_(
-        findDressingPairCandidates_(data),
-        data.callback
-      );
+      return apiOutput_(findDressingPairCandidates_(data), data.callback);
     }
 
     if(action === 'saveDressingBarcode'){
-      return apiOutput_(
-        saveDressingBarcode_(data),
-        data.callback
-      );
+      return apiOutput_(saveDressingBarcode_(data), data.callback);
     }
 
     if(action === 'listDressingBarcode'){
@@ -162,14 +159,18 @@ function addDressingAliases_(obj){
 
 function getDressingBarcodeSheet_(){
   const ss = SpreadsheetApp.openById(DRESSING_BARCODE_SHEET_ID);
-  let sheet = ss.getSheetByName(DRESSING_MASTER_SHEET_NAME);
+  const sheets = ss.getSheets();
 
-  if(!sheet){
-    sheet = ss.insertSheet(DRESSING_MASTER_SHEET_NAME);
+  for(let i = 0; i < sheets.length; i++){
+    if(sheets[i].getSheetId() === DRESSING_MASTER_SHEET_GID){
+      setupDressingBarcodeHeader_(sheets[i]);
+      return sheets[i];
+    }
   }
 
-  setupDressingBarcodeHeader_(sheet);
-  return sheet;
+  throw new Error(
+    '找不到指定的敷料主檔 sheet，gid=' + DRESSING_MASTER_SHEET_GID
+  );
 }
 
 function getDressingTable_(){
@@ -759,6 +760,8 @@ function pingDressingBarcode_(){
   return {
     ok:true,
     sheetName:sheet.getName(),
+    sheetId:sheet.getSheetId(),
+    expectedSheetId:DRESSING_MASTER_SHEET_GID,
     lastRow:sheet.getLastRow(),
     lastColumn:sheet.getLastColumn(),
     headers:sheet
@@ -774,7 +777,8 @@ function whoamiDressingBarcode_(){
     activeUser:Session.getActiveUser().getEmail(),
     scriptTimeZone:Session.getScriptTimeZone(),
     spreadsheetId:DRESSING_BARCODE_SHEET_ID,
-    sheetName:DRESSING_MASTER_SHEET_NAME
+    sheetName:DRESSING_MASTER_SHEET_NAME,
+    sheetGid:DRESSING_MASTER_SHEET_GID
   };
 }
 
