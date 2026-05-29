@@ -914,6 +914,7 @@ let dressingMasterCache = [];
 let dictLoaded = false;
 let draggedRow = null;
 let dictScanMemory = {};
+let cancelledDictScanKeys = {};
 
 const DICT_TABLE_STATE = {
   mode:'closed', // closed | loading | clean | editing | adding | saving | deleting | refreshing | reordering | error
@@ -2395,6 +2396,7 @@ async function deleteDictRow(btn){
       也不能改 dressingMasterCache，否則批次新增時其他暫存列可能被誤清。
       同時清掉該列的掃描記憶，避免下一次掃同 GTIN 又回到已取消的暫存列。
     */
+    markDictScanCancelledForRow(tr);
     forgetDictScanMemoryForRow(tr);
     tr.remove();
     ensureDictEmptyRow();
@@ -2736,6 +2738,7 @@ function rememberDictRowBeforeRemove(tr){
 
 function clearDictScanMemory(){
   dictScanMemory = {};
+  cancelledDictScanKeys = {};
 
   document.querySelectorAll('#dictTbody tr:not(#dictEmptyRow)').forEach(function(tr){
     delete tr.dataset.scannedGtin;
@@ -2750,6 +2753,47 @@ function forgetDictScanMemoryByGtin(gtin){
   if(key && dictScanMemory && dictScanMemory[key]){
     delete dictScanMemory[key];
   }
+}
+
+function markDictScanCancelledByGtin(gtin){
+  const key = normalizeGtinForCompare(gtin);
+  if(!key){
+    return;
+  }
+
+  if(!cancelledDictScanKeys || typeof cancelledDictScanKeys !== 'object'){
+    cancelledDictScanKeys = {};
+  }
+
+  cancelledDictScanKeys[key] = true;
+}
+
+function markDictScanCancelledForRow(tr){
+  if(!tr){
+    return;
+  }
+
+  markDictScanCancelledByGtin(tr.dataset.scannedGtin || '');
+  markDictScanCancelledByGtin(tr.dataset.rowKey || '');
+  markDictScanCancelledByGtin(getRowInputValue(tr, '.dict-single-gtin'));
+  markDictScanCancelledByGtin(getRowInputValue(tr, '.dict-box-gtin'));
+
+  const map = getRowScannedGtinMap(tr);
+  Object.keys(map || {}).forEach(function(gtin){
+    markDictScanCancelledByGtin(gtin);
+  });
+}
+
+function clearDictScanCancelledByGtin(gtin){
+  const key = normalizeGtinForCompare(gtin);
+  if(key && cancelledDictScanKeys && cancelledDictScanKeys[key]){
+    delete cancelledDictScanKeys[key];
+  }
+}
+
+function isDictScanCancelled(gtin){
+  const key = normalizeGtinForCompare(gtin);
+  return !!(key && cancelledDictScanKeys && cancelledDictScanKeys[key]);
 }
 
 function forgetDictScanMemoryForRow(tr){
@@ -2777,6 +2821,8 @@ function removePendingDictScanRow(tr, gtin, message, title){
     掃描新增流程中途取消時，這列只存在前端，不能 reload 主檔。
     同時必須清掉掃描記憶，否則下次掃同一個 GTIN 會回到已取消的舊暫存列。
   */
+  markDictScanCancelledByGtin(gtin);
+  markDictScanCancelledForRow(tr);
   forgetDictScanMemoryByGtin(gtin);
   forgetDictScanMemoryForRow(tr);
 
@@ -2935,10 +2981,25 @@ function rowHasRememberedGtin(tr, gtin){
 }
 
 function findExistingRowByGtin(gtin){
-  return Array.from(document.querySelectorAll('#dictTbody tr:not(#dictEmptyRow)')).find(function(tr){
+  const rows = Array.from(document.querySelectorAll('#dictTbody tr:not(#dictEmptyRow)'));
+
+  const actualRow = rows.find(function(tr){
     return sameGtin(getRowInputValue(tr, '.dict-single-gtin'), gtin) ||
-      sameGtin(getRowInputValue(tr, '.dict-box-gtin'), gtin) ||
-      rowHasRememberedGtin(tr, gtin);
+      sameGtin(getRowInputValue(tr, '.dict-box-gtin'), gtin);
+  });
+
+  if(actualRow){
+    return actualRow;
+  }
+
+  // 如果剛剛使用者對這個掃描碼按過「不儲存」或取消流程，
+  // 下一次掃同碼必須重新開始，不可以靠舊 scannedGtinMap / scan memory 跳回舊列。
+  if(isDictScanCancelled(gtin)){
+    return null;
+  }
+
+  return rows.find(function(tr){
+    return rowHasRememberedGtin(tr, gtin);
   });
 }
 function describeDressingItem(item){
@@ -3462,6 +3523,9 @@ async function addDictRow(barcode, parsed){
     showNotice('', 'success', describeDressingItem(localExistingItem));
     return;
   }
+
+  // 走到這裡代表要重新建立一列；清掉取消標記，讓這一輪新的暫存列可以正常記憶。
+  clearDictScanCancelledByGtin(scannedGtin);
 
   const scanMeta =
     `<div class="scanMeta">掃描GTIN：${escapeHtml(scannedGtin)}${parsed && parsed.lot ? '<br>批號：' + escapeHtml(parsed.lot) : ''}${parsed && parsed.exp ? '<br>效期：' + escapeHtml(parsed.exp) : ''}</div>`;
@@ -4243,7 +4307,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.16.3-202605292235</span>
+      <span>v.2.16.4-202605292238</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
