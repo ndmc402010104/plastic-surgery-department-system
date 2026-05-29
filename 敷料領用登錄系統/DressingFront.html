@@ -260,9 +260,11 @@ input:not([type="radio"]){ width:100%; }
 /* 畫面提示與自訂對話框：取代 alert / confirm / prompt */
 .headerNoticeWrap{
   position:fixed;
-  top:18px;
-  right:110px;
+  top:10px;
+  right:72px;
   z-index:1400;
+  width:auto;
+  max-width:280px;
   pointer-events:none;
 }
 
@@ -270,22 +272,26 @@ input:not([type="radio"]){ width:100%; }
   display:flex;
   flex-direction:column;
   align-items:flex-end;
+  width:auto;
 }
 
 .noticeCard{
   position:relative;
-  min-width:320px;
-  max-width:420px;
-  padding:14px 46px 14px 18px;
-  border-radius:18px;
+  height:44px;
+  width:auto;
+  min-width:0;
+  max-width:280px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:0 34px 0 12px;
+  border-radius:12px;
   background:rgba(255,255,255,.96);
   border:1px solid #dbe4ef;
-  border-left:5px solid #22c55e;
-  box-shadow:
-    0 10px 30px rgba(15,23,42,.10),
-    0 2px 8px rgba(15,23,42,.06);
-  backdrop-filter:blur(14px);
-  animation:noticeIn .18s ease;
+  border-left:4px solid #22c55e;
+  box-shadow:0 4px 12px rgba(15,23,42,.08);
+  backdrop-filter:blur(10px);
+  overflow:hidden;
   pointer-events:auto;
 }
 
@@ -294,8 +300,8 @@ input:not([type="radio"]){ width:100%; }
   position:absolute;
   top:50%;
   right:-7px;
-  width:14px;
-  height:14px;
+  width:10px;
+  height:10px;
   background:rgba(255,255,255,.96);
   border-top:1px solid #dbe4ef;
   border-right:1px solid #dbe4ef;
@@ -307,16 +313,22 @@ input:not([type="radio"]){ width:100%; }
 .noticeCard.warning{ border-left-color:#f59e0b; }
 
 .noticeTitle{
-  margin:0 0 4px;
-  font-size:18px;
-  font-weight:800;
+  margin:0;
+  font-size:14px;
+  font-weight:700;
+  white-space:nowrap;
+  flex:0 0 auto;
 }
 
 .noticeMessage{
-  margin:0;
-  color:#475569;
-  font-size:15px;
-  line-height:1.5;
+  min-width:0;
+  flex:1 1 auto;
+  max-width:170px;
+  font-size:13px;
+  color:#64748b;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .noticeClose{
@@ -346,9 +358,11 @@ input:not([type="radio"]){ width:100%; }
 
 @media(max-width:960px){
   .headerNoticeWrap{
-    top:14px;
-    right:72px;
-    left:112px;
+    top:12px;
+    right:58px;
+    left:auto;
+    width:auto;
+    max-width:220px;
   }
 
   .noticeCard{
@@ -367,6 +381,7 @@ input:not([type="radio"]){ width:100%; }
     font-size:13px;
   }
 }
+
 
 .appDialogOverlay{
   display:none;
@@ -1645,20 +1660,9 @@ function applyExistingItemToRow(tr, item, keepScannedAs){
 
 async function guideDictRowAfterScan(tr, forcedTarget){
   const scannedGtin = getScannedGtinFromRow(tr);
-  const shouldRemoveOnCancel = tr.dataset.isNewRow === '1';
-
-  function cancelNewScanRow(message){
-    if(shouldRemoveOnCancel && tr && tr.parentNode){
-      tr.remove();
-      ensureDictEmptyRow();
-    }
-
-    showNotice(message || '已取消建檔，未新增資料列。', 'warning', '已取消');
-  }
-
   if(!scannedGtin){
-    cancelNewScanRow('這列沒有可指定的掃描GTIN，已取消新增。');
-    return false;
+    showNotice('這列沒有可指定的掃描GTIN', 'warning');
+    return;
   }
 
   tr.classList.add('editing');
@@ -1668,16 +1672,12 @@ async function guideDictRowAfterScan(tr, forcedTarget){
   if(!target){
     const choice = await showInputDialog(
       '步驟 1：條碼類型',
-      '請選擇這次掃到的條碼類型
-
-1 = 單包GTIN
-2 = 盒裝GTIN',
+      '請選擇這次掃到的條碼類型\n\n1 = 單包GTIN\n2 = 盒裝GTIN',
       '1'
     );
 
     if(choice === null){
-      cancelNewScanRow('已取消條碼類型選擇，未新增資料列。');
-      return false;
+      return;
     }
 
     target = String(choice).trim() === '2' ? 'box' : 'single';
@@ -1709,8 +1709,8 @@ async function guideDictRowAfterScan(tr, forcedTarget){
   );
 
   if(name === null){
-    cancelNewScanRow('已取消敷料名稱選擇，未新增資料列。');
-    return false;
+    updateDictMainButton(tr);
+    return;
   }
 
   tr.querySelector('.dict-name').value = name;
@@ -1729,8 +1729,8 @@ async function guideDictRowAfterScan(tr, forcedTarget){
   );
 
   if(size === null){
-    cancelNewScanRow('已取消規格選擇，未新增資料列。');
-    return false;
+    updateDictMainButton(tr);
+    return;
   }
 
   tr.querySelector('.dict-size').value = size;
@@ -1742,20 +1742,11 @@ async function guideDictRowAfterScan(tr, forcedTarget){
 
   if(target === 'box'){
     const currentQty = tr.querySelector('.dict-box-qty').value || '';
-    const qty = await showInputDialog(
-      '步驟 4：一盒數量',
-      '請輸入一盒數量
+    const qty = await showInputDialog('步驟 4：一盒數量', '請輸入一盒數量\n\n可以先略過，之後再補。', currentQty);
 
-可以輸入 0 或留空，之後再補。',
-      currentQty
-    );
-
-    if(qty === null){
-      cancelNewScanRow('已取消一盒數量輸入，未新增資料列。');
-      return false;
+    if(qty !== null){
+      tr.querySelector('.dict-box-qty').value = String(qty).trim();
     }
-
-    tr.querySelector('.dict-box-qty').value = String(qty).trim();
   }
 
   const statusEl = tr.querySelector('.dictStatus');
@@ -1768,8 +1759,7 @@ async function guideDictRowAfterScan(tr, forcedTarget){
 
   updateDictMainButton(tr);
 
-  showNotice('已完成基本設定，請確認後按「儲存」。', 'success', '建檔流程完成');
-  return true;
+  showNotice('已完成基本設定。\n\n接下來可自由修改任何欄位；確認無誤後，按「儲存」。', 'success');
 }
 
 async function addDictRow(barcode, parsed){
@@ -2464,7 +2454,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.15.3-202605290953</span>
+      <span>v.2.15.3-202605290954</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
