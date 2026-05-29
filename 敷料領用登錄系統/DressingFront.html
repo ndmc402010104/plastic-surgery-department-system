@@ -1235,7 +1235,39 @@ function setDictLoadState(state, message){
   setDictTableMode('closed', message || '尚未讀取敷料主檔');
 }
 
-function openDressingDict(){
+function hasPendingDictWork(){
+  /*
+    離開/重開建檔頁前的保護：
+    只要還有前端暫存列、正在編輯列、排序模式或儲存/刪除/刷新中，
+    切換頁面或重新讀取都可能洗掉畫面上的未儲存狀態。
+  */
+  try{
+    return isDictTableBusy() || isReorderMode || hasPendingLocalRows();
+  } catch(error){
+    return false;
+  }
+}
+
+async function confirmLeaveDictWork(targetAction){
+  if(!hasPendingDictWork()){
+    return true;
+  }
+
+  return await showConfirmDialog(
+    '目前敷料建檔表格還有未儲存或正在編輯的項目。\n\n若繼續「' +
+      (targetAction || '離開') +
+      '」，這些前端暫存內容可能會消失。\n\n確定要繼續嗎？',
+    '尚有未儲存項目'
+  );
+}
+
+async function openDressingDict(){
+  const ok = await confirmLeaveDictWork('重新開啟敷料建檔');
+  if(!ok){
+    showNotice('已停留在目前畫面，未重新讀取敷料主檔', 'warning', '已取消');
+    return;
+  }
+
   document.getElementById('formArea').style.display = 'none';
   document.getElementById('dictArea').style.display = 'block';
   loadDictList();
@@ -3848,8 +3880,24 @@ async function saveDictOrder(){
   setDictTableMode(getDictNextIdleMode());
 }
 
+window.addEventListener('beforeunload', function(event){
+  if(!hasPendingDictWork()){
+    return;
+  }
+
+  event.preventDefault();
+  event.returnValue = '';
+  return '';
+});
+
 /* 領用區 */
-function startUse(){
+async function startUse(){
+  const ok = await confirmLeaveDictWork('開始領用');
+  if(!ok){
+    showNotice('已停留在敷料建檔畫面，未切換到領用流程', 'warning', '已取消');
+    return;
+  }
+
   document.getElementById('formArea').style.display = 'block';
   document.getElementById('dictArea').style.display = 'none';
 
@@ -4399,7 +4447,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.16.8-202605292308</span>
+      <span>v.2.16.9-202605292314</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
