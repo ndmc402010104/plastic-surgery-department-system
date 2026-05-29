@@ -191,10 +191,90 @@ function Get-ClaspVersionNumberFromOutput {
   throw "無法從 clasp 輸出解析 Apps Script version number：$($Output -join ' ')"
 }
 
+
+function Format-ReadmeVersionText {
+  param(
+    [string]$Version
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Version)) {
+    return ''
+  }
+
+  $value = $Version.Trim()
+
+  if ($value -match '^v') {
+    return $value
+  }
+
+  return "v$value"
+}
+
+function Update-ReadmeCurrentVersions {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ReadmePath,
+
+    [string]$ProdVersion,
+
+    [string]$TestVersion,
+
+    [string]$GitHubVersion
+  )
+
+  if (-not (Test-Path -LiteralPath $ReadmePath)) {
+    Write-Host "找不到 README.md，略過當前版本號更新。" -ForegroundColor Yellow
+    return $false
+  }
+
+  $content =
+    Get-Content -Path $ReadmePath -Raw -Encoding UTF8
+
+  $updated = $content
+
+  if (-not [string]::IsNullOrWhiteSpace($ProdVersion)) {
+    $prodText = Format-ReadmeVersionText -Version $ProdVersion
+    $updated = [regex]::Replace(
+      $updated,
+      '(?m)^正式版\s*[:：]\s*.*$',
+      "正式版: $prodText"
+    )
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($TestVersion)) {
+    $testText = Format-ReadmeVersionText -Version $TestVersion
+    $updated = [regex]::Replace(
+      $updated,
+      '(?m)^測試版\s*[:：]\s*.*$',
+      "測試版: $testText"
+    )
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($GitHubVersion)) {
+    $githubText = Format-ReadmeVersionText -Version $GitHubVersion
+    $updated = [regex]::Replace(
+      $updated,
+      '(?m)^Github\s*[:：]\s*.*$',
+      "Github: $githubText"
+    )
+  }
+
+  if ($updated -cne $content) {
+    Set-Content -Path $ReadmePath -Value $updated -Encoding UTF8
+    Write-Host "README current versions updated." -ForegroundColor Green
+    return $true
+  }
+
+  Write-Host "README current versions unchanged." -ForegroundColor DarkGray
+  return $false
+}
+
+
 function Push-GitHubIfRequested {
   param(
     [pscustomobject]$Config,
-    [string]$Action
+    [string]$Action,
+    [string]$ReadmePath
   )
 
   if ($NoGitHubPrompt -or $Action -eq 'push') {
@@ -224,6 +304,12 @@ function Push-GitHubIfRequested {
 
   if ([string]::IsNullOrWhiteSpace($commitMessage)) {
     $commitMessage = $defaultMsg
+  }
+
+  if ($Config -and $ReadmePath) {
+    Update-ReadmeCurrentVersions `
+      -ReadmePath $ReadmePath `
+      -GitHubVersion $Config.Version | Out-Null
   }
 
   if (-not (Test-CommandExists -Name 'git')) {
@@ -350,6 +436,19 @@ $appConfig =
     -Version $version `
     -DefaultEnv $defaultEnv
 
+$readmePath =
+  Join-Path $rootPath 'README.md'
+
+$prodVersionForReadme = $null
+if ($Action -eq 'deploy') {
+  $prodVersionForReadme = $appConfig.Version
+}
+
+Update-ReadmeCurrentVersions `
+  -ReadmePath $readmePath `
+  -ProdVersion $prodVersionForReadme `
+  -TestVersion $appConfig.Version | Out-Null
+
 # 自動更新 DressingFront.html 中的 GitHub 版號
 $dressingFrontPath = Join-Path $rootPath '敷料領用登錄系統\DressingFront.html'
 if (Test-Path -LiteralPath $dressingFrontPath) {
@@ -437,4 +536,4 @@ else {
   Write-Host "Push completed with version $($appConfig.Description)"
 }
 
-Push-GitHubIfRequested -Config $appConfig -Action $Action
+Push-GitHubIfRequested -Config $appConfig -Action $Action -ReadmePath $readmePath
