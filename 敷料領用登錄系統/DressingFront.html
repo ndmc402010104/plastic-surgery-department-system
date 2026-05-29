@@ -255,6 +255,91 @@ input:not([type="radio"]){ width:100%; }
   flex-wrap:wrap;
 }
 
+
+
+/* 畫面提示與自訂對話框：取代 alert / confirm / prompt */
+.noticeStack{
+  position:fixed;
+  top:92px;
+  right:24px;
+  z-index:1200;
+  display:grid;
+  gap:10px;
+  width:min(420px,calc(100vw - 32px));
+}
+
+.noticeCard{
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-left:5px solid var(--primary);
+  border-radius:10px;
+  background:#ffffff;
+  box-shadow:0 12px 28px rgba(15,23,42,.14);
+  color:var(--text);
+  line-height:1.55;
+  white-space:pre-line;
+}
+
+.noticeCard.success{ border-left-color:#16a34a; }
+.noticeCard.error{ border-left-color:#dc2626; }
+.noticeCard.warning{ border-left-color:#f59e0b; }
+
+.noticeTitle{
+  margin:0 0 2px;
+  font-weight:800;
+}
+
+.noticeMessage{
+  margin:0;
+  color:#334155;
+  font-size:14px;
+}
+
+.appDialogOverlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:1300;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  background:rgba(15,23,42,.48);
+}
+
+.appDialog{
+  width:min(520px,100%);
+  border-radius:12px;
+  background:#ffffff;
+  border:1px solid var(--line);
+  box-shadow:0 18px 50px rgba(15,23,42,.26);
+  padding:18px;
+}
+
+.appDialogTitle{
+  margin:0 0 10px;
+  font-size:18px;
+  font-weight:800;
+}
+
+.appDialogMessage{
+  margin:0 0 12px;
+  color:#334155;
+  line-height:1.65;
+  white-space:pre-line;
+}
+
+.appDialogInput{
+  width:100%;
+  margin-top:4px;
+}
+
+.appDialogActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:16px;
+}
+
 /* 掃描視窗 */
 .scannerOverlay{
   display:none;
@@ -598,7 +683,8 @@ function goHome(){
       <button type="button" id="batchSaveBtn" onclick="batchSaveDict()">批次儲存</button>
       <button type="button" id="reorderBtn" onclick="toggleReorderMode()">更改排序</button>
       <button type="button" id="saveOrderBtn" class="primary" style="display:none;" onclick="saveDictOrder()">儲存排序</button>
-      <button type="button" id="dictScanBtn" class="primary" onclick="startDictScanner()" disabled>開啟掃描 📷</button>
+      <button type="button" id="testHydrocleanSingleBtn" class="primary" onclick="triggerHydrocleanCavityTest('single')" disabled>測試單包碼</button>
+      <button type="button" id="testHydrocleanBoxBtn" class="primary" onclick="triggerHydrocleanCavityTest('box')" disabled>測試盒裝碼</button>
     </div>
   </div>
 
@@ -635,6 +721,20 @@ function goHome(){
   </div>
 </div>
 
+<div id="noticeStack" class="noticeStack" aria-live="polite"></div>
+
+<div id="appDialogOverlay" class="appDialogOverlay">
+  <div class="appDialog" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle">
+    <h3 id="appDialogTitle" class="appDialogTitle"></h3>
+    <p id="appDialogMessage" class="appDialogMessage"></p>
+    <input id="appDialogInput" class="appDialogInput">
+    <div class="appDialogActions">
+      <button type="button" id="appDialogCancelBtn">取消</button>
+      <button type="button" id="appDialogOkBtn" class="primary">確定</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let patientCount = 0;
 let dressingScanner = null;
@@ -646,6 +746,10 @@ let dressingMasterCache = [];
 let dictLoaded = false;
 let draggedRow = null;
 
+// HydroClean cavity 測試用完整碼：等你拿到完整碼後，只要改這兩行即可。
+const TEST_HYDROCLEAN_CAVITY_SINGLE_CODE = '(01)04052199255484(11)250324(17)280301(10)500113156';
+const TEST_HYDROCLEAN_CAVITY_BOX_CODE = '(01)04052199255491(11)250324(17)280301(10)500113156';
+
 function escapeHtml(value){
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -655,12 +759,107 @@ function escapeHtml(value){
     .replace(/'/g, '&#39;');
 }
 
+
+function normalizeGtinForCompare(value){
+  const clean = String(value || '').replace(/[^0-9]/g, '').trim();
+  if(!clean) return '';
+  const stripped = clean.replace(/^0+/, '');
+  return stripped || '0';
+}
+
+function sameGtin(a, b){
+  const na = normalizeGtinForCompare(a);
+  const nb = normalizeGtinForCompare(b);
+  return !!na && !!nb && na === nb;
+}
+
+function showNotice(message, type, title){
+  const stack = document.getElementById('noticeStack');
+  if(!stack){
+    console.log(message);
+    return;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'noticeCard ' + (type || 'info');
+  card.innerHTML = `
+    ${title ? `<div class="noticeTitle">${escapeHtml(title)}</div>` : ''}
+    <div class="noticeMessage">${escapeHtml(message)}</div>
+  `;
+
+  stack.appendChild(card);
+
+  setTimeout(function(){
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(-6px)';
+    card.style.transition = 'all .2s ease';
+    setTimeout(function(){ card.remove(); }, 220);
+  }, 3600);
+}
+
+function openAppDialog(options){
+  return new Promise(function(resolve){
+    const overlay = document.getElementById('appDialogOverlay');
+    const titleEl = document.getElementById('appDialogTitle');
+    const messageEl = document.getElementById('appDialogMessage');
+    const inputEl = document.getElementById('appDialogInput');
+    const okBtn = document.getElementById('appDialogOkBtn');
+    const cancelBtn = document.getElementById('appDialogCancelBtn');
+
+    titleEl.innerText = options.title || '提示';
+    messageEl.innerText = options.message || '';
+    inputEl.value = options.defaultValue || '';
+    inputEl.style.display = options.input ? 'block' : 'none';
+    cancelBtn.style.display = options.cancel === false ? 'none' : 'inline-block';
+    okBtn.innerText = options.okText || '確定';
+    cancelBtn.innerText = options.cancelText || '取消';
+    overlay.style.display = 'flex';
+
+    function cleanup(value){
+      overlay.style.display = 'none';
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      inputEl.onkeydown = null;
+      resolve(value);
+    }
+
+    okBtn.onclick = function(){
+      cleanup(options.input ? inputEl.value : true);
+    };
+
+    cancelBtn.onclick = function(){
+      cleanup(options.input ? null : false);
+    };
+
+    inputEl.onkeydown = function(e){
+      if(e.key === 'Enter') cleanup(inputEl.value);
+      if(e.key === 'Escape') cleanup(null);
+    };
+
+    if(options.input){
+      setTimeout(function(){ inputEl.focus(); inputEl.select(); }, 50);
+    } else {
+      setTimeout(function(){ okBtn.focus(); }, 50);
+    }
+  });
+}
+
+function showConfirmDialog(message, title){
+  return openAppDialog({ title:title || '確認', message:message, input:false, okText:'確定', cancelText:'取消' });
+}
+
+function showInputDialog(title, message, defaultValue){
+  return openAppDialog({ title:title, message:message, input:true, defaultValue:defaultValue || '', okText:'確定', cancelText:'取消' });
+}
+
 function isAppsScriptMode(){
   return typeof google !== 'undefined' && google.script && google.script.run;
 }
 
 function setDictLoadState(state, message){
   const scanBtn = document.getElementById('dictScanBtn');
+  const testSingleBtn = document.getElementById('testHydrocleanSingleBtn');
+  const testBoxBtn = document.getElementById('testHydrocleanBoxBtn');
   const status = document.getElementById('dictLoadStatus');
 
   if(status){
@@ -669,6 +868,14 @@ function setDictLoadState(state, message){
 
   if(scanBtn){
     scanBtn.disabled = state !== 'ready';
+  }
+
+  if(testSingleBtn){
+    testSingleBtn.disabled = state !== 'ready';
+  }
+
+  if(testBoxBtn){
+    testBoxBtn.disabled = state !== 'ready';
   }
 
   dictLoaded = state === 'ready';
@@ -992,7 +1199,7 @@ async function saveDictRow(btn){
 async function batchSaveDict(){
   const editingRows = document.querySelectorAll('#dictTbody tr.editing');
   if(editingRows.length === 0){
-    alert('目前沒有需要儲存的項目');
+    showNotice('目前沒有需要儲存的項目', 'warning');
     return;
   }
 
@@ -1019,7 +1226,7 @@ async function batchSaveDict(){
   btn.innerText = originalText;
   btn.disabled = false;
 
-  alert(`批次儲存完成！\n成功：${successCount} 筆\n失敗：${failCount} 筆`);
+  showNotice(`批次儲存完成！\n成功：${successCount} 筆\n失敗：${failCount} 筆`, failCount ? 'warning' : 'success');
 }
 
 async function deleteDictRow(btn){
@@ -1031,7 +1238,7 @@ async function deleteDictRow(btn){
     return;
   }
 
-  if(!confirm('確定要刪除此筆已建檔資料嗎？')){
+  if(!await showConfirmDialog('確定要刪除此筆已建檔資料嗎？', '刪除確認')){
     return;
   }
 
@@ -1056,9 +1263,9 @@ async function deleteDictRow(btn){
       return;
     }
 
-    alert('刪除失敗：' + (res.message || '找不到資料'));
+    showNotice('刪除失敗：' + (res.message || '找不到資料'), 'error');
   } catch(err){
-    alert('刪除錯誤：' + (err.message || err));
+    showNotice('刪除錯誤：' + (err.message || err), 'error');
   }
 
   btn.disabled = false;
@@ -1075,7 +1282,7 @@ function ensureDictEmptyRow(){
 
 function startDictScanner(){
   if(!dictLoaded || dressingMasterCache === null){
-    alert('請先等敷料主檔讀取完成，再開啟掃描。');
+    showNotice('請先等敷料主檔讀取完成，再開啟掃描。', 'warning');
     return;
   }
 
@@ -1088,6 +1295,32 @@ function manualDictScanForDebug(barcode){
   const code = String(barcode || '').trim();
   if(!code) return;
   scannerMode = 'dict';
+  return handleBarcodeScanResult(code);
+}
+
+function triggerHydrocleanCavityTest(type){
+  if(!dictLoaded || dressingMasterCache === null){
+    showNotice('請先等敷料主檔讀取完成，再測試條碼。', 'warning');
+    return;
+  }
+
+  const code = type === 'box'
+    ? TEST_HYDROCLEAN_CAVITY_BOX_CODE
+    : TEST_HYDROCLEAN_CAVITY_SINGLE_CODE;
+
+  if(!code || code.includes('PASTE_HYDROCLEAN_CAVITY')){
+    showNotice(
+      type === 'box'
+        ? '尚未填入 HydroClean cavity 盒裝完整碼。請先修改 TEST_HYDROCLEAN_CAVITY_BOX_CODE。'
+        : '尚未填入 HydroClean cavity 單包完整碼。請先修改 TEST_HYDROCLEAN_CAVITY_SINGLE_CODE。',
+      'warning',
+      '測試碼未設定'
+    );
+    return;
+  }
+
+  scannerMode = 'dict';
+  showNotice(type === 'box' ? '已送出 HydroClean cavity 盒裝測試碼' : '已送出 HydroClean cavity 單包測試碼', 'info');
   return handleBarcodeScanResult(code);
 }
 
@@ -1134,8 +1367,8 @@ function buildNumberedPrompt(title, values){
     '\n\n請輸入編號，或直接輸入新文字。';
 }
 
-function pickValueByPrompt(title, values, defaultValue){
-  const answer = prompt(buildNumberedPrompt(title, values), defaultValue || '');
+async function pickValueByPrompt(title, values, defaultValue){
+  const answer = await showInputDialog(title, buildNumberedPrompt(title, values), defaultValue || '');
 
   if(answer === null){
     return null;
@@ -1159,6 +1392,29 @@ function findExistingItemByNameAndSize(name, size){
     return String(item.dressingName || '').trim() === cleanName &&
       String(item.size || '').trim() === cleanSize;
   });
+}
+
+
+function findExistingItemByGtin(gtin){
+  return getExistingDressingItems().find(function(item){
+    return sameGtin(item.singleGtin || item.gtin || '', gtin) ||
+      sameGtin(item.boxGtin || '', gtin);
+  });
+}
+
+function findExistingRowByGtin(gtin){
+  return Array.from(document.querySelectorAll('#dictTbody tr:not(#dictEmptyRow)')).find(function(tr){
+    return sameGtin(tr.querySelector('.dict-single-gtin')?.value || '', gtin) ||
+      sameGtin(tr.querySelector('.dict-box-gtin')?.value || '', gtin) ||
+      sameGtin(tr.dataset.scannedGtin || '', gtin) ||
+      sameGtin(tr.dataset.rowKey || '', gtin);
+  });
+}
+
+function describeDressingItem(item){
+  const name = item?.dressingName || '未命名敷料';
+  const size = item?.size ? ' ' + item.size : '';
+  return `${name}${size}`;
 }
 
 function applyExistingItemToRow(tr, item, keepScannedAs){
@@ -1189,10 +1445,10 @@ function applyExistingItemToRow(tr, item, keepScannedAs){
     scannedGtin;
 }
 
-function guideDictRowAfterScan(tr, forcedTarget){
+async function guideDictRowAfterScan(tr, forcedTarget){
   const scannedGtin = getScannedGtinFromRow(tr);
   if(!scannedGtin){
-    alert('這列沒有可指定的掃描GTIN');
+    showNotice('這列沒有可指定的掃描GTIN', 'warning');
     return;
   }
 
@@ -1201,8 +1457,9 @@ function guideDictRowAfterScan(tr, forcedTarget){
 
   let target = forcedTarget || '';
   if(!target){
-    const choice = prompt(
-      '步驟 1：請選擇這次掃到的條碼類型\n\n1 = 單包GTIN\n2 = 盒裝GTIN',
+    const choice = await showInputDialog(
+      '步驟 1：條碼類型',
+      '請選擇這次掃到的條碼類型\n\n1 = 單包GTIN\n2 = 盒裝GTIN',
       '1'
     );
 
@@ -1232,7 +1489,7 @@ function guideDictRowAfterScan(tr, forcedTarget){
     allItems.map(item => String(item.dressingName || '').trim()).filter(Boolean)
   )).sort();
 
-  const name = pickValueByPrompt(
+  const name = await pickValueByPrompt(
     '步驟 2：請選擇或輸入敷料名稱',
     names,
     tr.querySelector('.dict-name').value || ''
@@ -1252,7 +1509,7 @@ function guideDictRowAfterScan(tr, forcedTarget){
       .filter(Boolean)
   )).sort();
 
-  const size = pickValueByPrompt(
+  const size = await pickValueByPrompt(
     '步驟 3：請選擇或輸入規格描述',
     sizesForName,
     tr.querySelector('.dict-size').value || ''
@@ -1272,7 +1529,7 @@ function guideDictRowAfterScan(tr, forcedTarget){
 
   if(target === 'box'){
     const currentQty = tr.querySelector('.dict-box-qty').value || '';
-    const qty = prompt('步驟 4：請輸入一盒數量\n\n可以先略過，之後再補。', currentQty);
+    const qty = await showInputDialog('步驟 4：一盒數量', '請輸入一盒數量\n\n可以先略過，之後再補。', currentQty);
 
     if(qty !== null){
       tr.querySelector('.dict-box-qty').value = String(qty).trim();
@@ -1289,7 +1546,7 @@ function guideDictRowAfterScan(tr, forcedTarget){
 
   updateDictMainButton(tr);
 
-  alert('已完成基本設定。\n\n接下來可自由修改任何欄位；確認無誤後，按「儲存」。');
+  showNotice('已完成基本設定。\n\n接下來可自由修改任何欄位；確認無誤後，按「儲存」。', 'success');
 }
 
 async function addDictRow(barcode, parsed){
@@ -1298,12 +1555,17 @@ async function addDictRow(barcode, parsed){
 
   const scannedGtin = String(barcode || '').trim();
 
-  const existingInput = Array.from(document.querySelectorAll('.dict-single-gtin, .dict-box-gtin'))
-    .find(input => input.value.trim() === scannedGtin);
+  const existingRow = findExistingRowByGtin(scannedGtin);
+  if(existingRow){
+    const data = getDictRowData(existingRow);
+    showNotice(`此 GTIN 已在清單中：${describeDressingItem(data)}`, 'warning', '已建檔');
+    existingRow.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
 
-  if(existingInput){
-    alert('此 GTIN 已在清單中');
-    existingInput.closest('tr').scrollIntoView({ behavior:'smooth', block:'center' });
+  const localExistingItem = findExistingItemByGtin(scannedGtin);
+  if(localExistingItem){
+    showNotice(`此 GTIN 已建檔：${describeDressingItem(localExistingItem)}`, 'success', '已建檔');
     return;
   }
 
@@ -1329,7 +1591,11 @@ async function addDictRow(barcode, parsed){
   document.getElementById('dictTbody').prepend(tr);
 
   try{
-    const res = await lookupBarcode(scannedGtin);
+    let res = await lookupBarcode(scannedGtin);
+
+    if((!res || !res.found) && normalizeGtinForCompare(scannedGtin) !== scannedGtin){
+      res = await lookupBarcode(normalizeGtinForCompare(scannedGtin));
+    }
 
   if(res.found){
 
@@ -1352,10 +1618,10 @@ async function addDictRow(barcode, parsed){
         ? '盒裝'
         : '單包';
 
-    alert(
-      `已建檔 (${packageLabel})\n\n` +
-      `${itemName}\n` +
-      `${itemSize}`
+    showNotice(
+      `已建檔 (${packageLabel})\n${itemName}\n${itemSize}`,
+      'success',
+      '查詢完成'
     );
 
     tr.querySelector('.dictStatus').innerText =
@@ -1373,12 +1639,12 @@ async function addDictRow(barcode, parsed){
 
     tr.querySelector('.dictStatus').innerText = '新GTIN，開始引導建檔';
     tr.querySelector('.dictStatus').className = 'dictStatus';
-    guideDictRowAfterScan(tr);
+    await guideDictRowAfterScan(tr);
   } catch(err){
     tr.querySelector('.dictStatus').innerText = '查詢失敗，仍可手動建檔';
     tr.querySelector('.dictStatus').className = 'dictStatus error';
     console.log(err);
-    guideDictRowAfterScan(tr);
+    await guideDictRowAfterScan(tr);
   }
 }
 
@@ -1543,10 +1809,10 @@ async function saveDictOrder(){
       document.getElementById('dictTable').classList.remove('reorder-mode');
       await loadDictList();
     } else {
-      alert('排序儲存失敗');
+      showNotice('排序儲存失敗', 'error');
     }
   } catch(err){
-    alert('儲存錯誤：' + err.message);
+    showNotice('儲存錯誤：' + err.message, 'error');
   }
 
   btn.innerText = '儲存排序';
@@ -1690,7 +1956,7 @@ function startDressingScanner(){
     )
     .catch(function(err){
       console.log(err);
-      alert('無法開啟相機，請確認手機瀏覽器已允許相機權限');
+      showNotice('無法開啟相機，請確認手機瀏覽器已允許相機權限', 'error');
     });
 }
 
@@ -1969,7 +2235,7 @@ document.addEventListener('click', function(e){
     const tbody = e.target.closest('tbody');
 
     if(tbody.rows.length <= 1){
-      alert('至少保留一列');
+      showNotice('至少保留一列', 'warning');
       return;
     }
 
@@ -1978,7 +2244,7 @@ document.addEventListener('click', function(e){
 
   if(e.target.classList.contains('deletePatient')){
     if(document.querySelectorAll('.patientBlock').length <= 1){
-      alert('至少保留一位病人');
+      showNotice('至少保留一位病人', 'warning');
       return;
     }
 
@@ -1994,7 +2260,7 @@ function refreshPatientTitle(){
 }
 
 function submitUse(){
-  alert('下一步接 Sheet');
+  showNotice('下一步接 Sheet', 'info');
 }
 </script>
 </main>
@@ -2022,7 +2288,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.15.2-202605290222</span>
+      <span>v.2.15.3-202605290828</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
@@ -2031,6 +2297,7 @@ if (window.location.hostname.includes('github.io')) {
 
 </body>
 </html>
+
 
 
 
