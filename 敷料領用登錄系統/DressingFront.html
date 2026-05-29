@@ -1524,34 +1524,166 @@ async function saveDictRow(btn){
   updateDictMainButton(tr);
 }
 
+function buildDictSavePayloadFromRow(tr){
+  const data = getDictRowData(tr);
+  const originalData = getOriginalDictRowData(tr) || {};
+
+  return {
+    data:data,
+    originalData:originalData,
+    payload:{
+      originalGtin: originalData.singleGtin || originalData.gtin || '',
+      originalBoxGtin: originalData.boxGtin || '',
+      hospitalCode: data.hospitalCode || '',
+      singleGtin: data.singleGtin || '',
+      gtin: data.singleGtin || '',
+      dressingName: data.dressingName || '',
+      size: data.size || '',
+      category: data.category || '',
+      boxGtin: data.boxGtin || '',
+      boxQuantity: data.boxQuantity || '',
+      status: data.status || '使用中'
+    }
+  };
+}
+
+async function saveDictRowWithoutReload(tr){
+  const built = buildDictSavePayloadFromRow(tr);
+  const data = built.data;
+  const originalData = built.originalData;
+  const payload = built.payload;
+  const statusEl = tr.querySelector('.dictStatus');
+  const mainBtn = tr.querySelector('.edit-main-btn');
+
+  const hasKeyField =
+    data.hospitalCode ||
+    data.singleGtin ||
+    data.boxGtin;
+
+  if(!hasKeyField){
+    if(statusEl){
+      statusEl.innerText = '院內碼、單包GTIN、包裝GTIN至少填一項';
+      statusEl.className = 'dictStatus error';
+    }
+
+    return {
+      ok:false,
+      skipped:false,
+      message:'院內碼、單包GTIN、包裝GTIN至少填一項'
+    };
+  }
+
+  if(statusEl){
+    statusEl.innerText = '批次儲存中...';
+    statusEl.className = 'dictStatus';
+  }
+
+  if(mainBtn){
+    mainBtn.disabled = true;
+    mainBtn.innerText = '...';
+  }
+
+  let conflict = { conflict:false };
+
+  try{
+    conflict = await checkBarcodeConflictBeforeSave(data, originalData);
+  } catch(error){
+    console.log('批次儲存前查重失敗，繼續交由後端判斷', error);
+  }
+
+  if(conflict && conflict.conflict){
+    if(statusEl){
+      statusEl.innerText = '已存在，未儲存';
+      statusEl.className = 'dictStatus error';
+    }
+
+    if(mainBtn){
+      mainBtn.disabled = false;
+      updateDictMainButton(tr);
+    }
+
+    return {
+      ok:false,
+      skipped:false,
+      message:conflict.message || '此資料已存在'
+    };
+  }
+
+  try{
+    const res = await saveBarcode(payload);
+
+    if(res && res.ok){
+      tr.dataset.rowKey =
+        data.hospitalCode ||
+        data.singleGtin ||
+        data.boxGtin ||
+        '';
+
+      if(statusEl){
+        statusEl.innerText = res.mergeReason ? '已合併/儲存' : '已儲存';
+        statusEl.className = 'dictStatus saved';
+      }
+
+      setDictRowSnapshot(tr);
+      leaveDictEditMode(tr);
+
+      return {
+        ok:true,
+        skipped:false,
+        response:res
+      };
+    }
+
+    if(statusEl){
+      statusEl.innerText = (res && res.message) || '儲存失敗';
+      statusEl.className = 'dictStatus error';
+    }
+
+    return {
+      ok:false,
+      skipped:false,
+      message:(res && res.message) || '儲存失敗'
+    };
+
+  } catch(err){
+    if(statusEl){
+      statusEl.innerText = '儲存錯誤';
+      statusEl.className = 'dictStatus error';
+    }
+
+    console.log(err);
+
+    return {
+      ok:false,
+      skipped:false,
+      message:err && err.message ? err.message : String(err)
+    };
+  } finally {
+    if(mainBtn){
+      mainBtn.disabled = false;
+      updateDictMainButton(tr);
+    }
+  }
+}
+
 async function batchSaveDict(){
-  const editingRows = document.querySelectorAll('#dictTbody tr.editing');
+  const editingRows = Array.from(document.querySelectorAll('#dictTbody tr.editing'));
+
   if(editingRows.length === 0){
     showNotice('目前沒有需要處理的項目', 'warning');
     return;
   }
 
-  const btn = document.getElementById('batchSaveBtn');
-  const originalText = btn.innerText;
-  btn.innerText = '批次處理中...';
-  btn.disabled = true;
+  const dirtyRows = editingRows.filter(function(tr){
+    return isDictRowDirty(tr);
+  });
 
-  let successCount = 0;
-  let failCount = 0;
-  let returnedCount = 0;
+  const cleanRows = editingRows.filter(function(tr){
+    return !isDictRowDirty(tr);
+  });
 
-  for(const tr of editingRows){
-    const mainBtn = tr.querySelector('.edit-main-btn');
-    if(!mainBtn) continue;
-
-    if(isDictRowDirty(tr)){
-      await saveDictRow(mainBtn);
-      if(!tr.classList.contains('editing')){
-        successCount++;
-      } else {
-        failCount++;
-      }
-    } else {
+  if(dirtyRows.length === 0){
+    cleanRows.forEach(function(tr){
       restoreDictRowSnapshot(tr);
       leaveDictEditMode(tr);
       const statusEl = tr.querySelector('.dictStatus');
@@ -1559,19 +1691,74 @@ async function batchSaveDict(){
         statusEl.innerText = '已返回';
         statusEl.className = 'dictStatus saved';
       }
-      returnedCount++;
+    });
+
+    showNotice('沒有變更需要儲存', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('batchSaveBtn');
+  const originalText = btn ? btn.innerText : '';
+
+  if(btn){
+    btn.innerText = '批次儲存中...';
+    btn.disabled = true;
+  }
+
+  const batchPayload = dirtyRows.map(function(tr){
+    return buildDictSavePayloadFromRow(tr).payload;
+  });
+
+  debugDressingBarcode('batch-save-payload', batchPayload);
+
+  let successCount = 0;
+  let failCount = 0;
+  let returnedCount = 0;
+  const errors = [];
+
+  for(const tr of cleanRows){
+    restoreDictRowSnapshot(tr);
+    leaveDictEditMode(tr);
+    const statusEl = tr.querySelector('.dictStatus');
+    if(statusEl){
+      statusEl.innerText = '已返回';
+      statusEl.className = 'dictStatus saved';
+    }
+    returnedCount++;
+  }
+
+  for(const tr of dirtyRows){
+    const result = await saveDictRowWithoutReload(tr);
+
+    if(result && result.ok){
+      successCount++;
+    } else {
+      failCount++;
+      if(result && result.message){
+        errors.push(result.message);
+      }
     }
   }
 
-  btn.innerText = originalText;
-  btn.disabled = false;
+  if(btn){
+    btn.innerText = originalText;
+    btn.disabled = false;
+  }
 
   const messages = [];
-  if(successCount > 0) messages.push(`儲存：${successCount} 筆`);
-  if(returnedCount > 0) messages.push(`未變更返回：${returnedCount} 筆`);
-  if(failCount > 0) messages.push(`失敗：${failCount} 筆`);
+  if(successCount > 0) messages.push('儲存：' + successCount + ' 筆');
+  if(returnedCount > 0) messages.push('未變更返回：' + returnedCount + ' 筆');
+  if(failCount > 0) messages.push('失敗：' + failCount + ' 筆');
 
-  showNotice(`批次處理完成！\n${messages.join('\n')}`, failCount ? 'warning' : 'success');
+  showNotice(
+    '批次處理完成！\n' + messages.join('\n') +
+      (errors.length ? '\n\n第一筆錯誤：' + errors[0] : ''),
+    failCount ? 'warning' : 'success'
+  );
+
+  if(successCount > 0 && failCount === 0){
+    await loadDictList();
+  }
 }
 
 async function deleteDictRow(btn){
@@ -2867,7 +3054,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.15.6-202605291207</span>
+      <span>v.2.15.7-202605291212</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
