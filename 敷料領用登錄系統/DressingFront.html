@@ -1302,6 +1302,182 @@ function moveDictRowToTop(tr){
   }
 }
 
+
+function isSameDressingIdentityForRow(rowData, item){
+  rowData = rowData || {};
+  item = item || {};
+
+  const rowHospitalCode = String(rowData.hospitalCode || '').trim();
+  const itemHospitalCode = String(item.hospitalCode || '').trim();
+
+  if(rowHospitalCode && itemHospitalCode && rowHospitalCode === itemHospitalCode){
+    return true;
+  }
+
+  const rowSingle = rowData.singleGtin || rowData.gtin || '';
+  const itemSingle = item.singleGtin || item.gtin || '';
+  const rowBox = rowData.boxGtin || '';
+  const itemBox = item.boxGtin || '';
+
+  if(rowSingle && itemSingle && sameGtin(rowSingle, itemSingle)){
+    return true;
+  }
+
+  if(rowBox && itemBox && sameGtin(rowBox, itemBox)){
+    return true;
+  }
+
+  if(rowSingle && itemBox && sameGtin(rowSingle, itemBox)){
+    return true;
+  }
+
+  if(rowBox && itemSingle && sameGtin(rowBox, itemSingle)){
+    return true;
+  }
+
+  const rowName = normalizeTextForCompare(rowData.dressingName || '');
+  const itemName = normalizeTextForCompare(item.dressingName || '');
+  const rowSize = normalizeTextForCompare(rowData.size || '');
+  const itemSize = normalizeTextForCompare(item.size || '');
+
+  return !!rowName && !!itemName && rowName === itemName && rowSize === itemSize;
+}
+
+function findExistingRowByItem(item, excludeTr){
+  return Array.from(document.querySelectorAll('#dictTbody tr:not(#dictEmptyRow)')).find(function(row){
+    if(excludeTr && row === excludeTr){
+      return false;
+    }
+
+    return isSameDressingIdentityForRow(getDictRowData(row), item || {});
+  });
+}
+
+function applyDressingItemToDictRow(tr, item){
+  if(!tr || !item){
+    return;
+  }
+
+  const map = {
+    '.dict-hospital-code': item.hospitalCode || '',
+    '.dict-name': item.dressingName || '',
+    '.dict-size': item.size || '',
+    '.dict-single-gtin': item.singleGtin || item.gtin || '',
+    '.dict-box-gtin': item.boxGtin || '',
+    '.dict-box-qty': item.boxQuantity || '',
+    '.dict-category': item.category || '',
+    '.dict-status': item.status || '使用中'
+  };
+
+  Object.keys(map).forEach(function(selector){
+    const input = tr.querySelector(selector);
+    if(input){
+      input.disabled = false;
+      input.value = map[selector];
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+      input.dispatchEvent(new Event('change', { bubbles:true }));
+    }
+  });
+
+  const single = item.singleGtin || item.gtin || '';
+  const box = item.boxGtin || '';
+
+  if(single){
+    setRowScannedGtinTarget(tr, single, 'single');
+  }
+
+  if(box){
+    setRowScannedGtinTarget(tr, box, 'box');
+  }
+
+  tr.dataset.rowKey = item.hospitalCode || single || box || '';
+}
+
+function mergeSavedItemWithVisibleRows(savedItem, mainTr, duplicateTr){
+  const merged = Object.assign({}, savedItem || {});
+  const sources = [mainTr, duplicateTr].filter(Boolean);
+
+  function firstValue(selector){
+    for(let i = 0; i < sources.length; i++){
+      const value = getRowInputValue(sources[i], selector);
+      if(value){
+        return value;
+      }
+    }
+    return '';
+  }
+
+  // 如果這次其實是重掃／重建造成的前端重複列，後端回傳空白時不要把畫面上原本已有的條碼洗掉。
+  if(!(merged.singleGtin || merged.gtin)){
+    const value = firstValue('.dict-single-gtin');
+    if(value){
+      merged.singleGtin = value;
+      merged.gtin = value;
+    }
+  }
+
+  if(!merged.boxGtin){
+    const value = firstValue('.dict-box-gtin');
+    if(value){
+      merged.boxGtin = value;
+    }
+  }
+
+  if(!merged.boxQuantity){
+    const value = firstValue('.dict-box-qty');
+    if(value){
+      merged.boxQuantity = value;
+    }
+  }
+
+  if(!merged.category){
+    const value = firstValue('.dict-category');
+    if(value){
+      merged.category = value;
+    }
+  }
+
+  return merged;
+}
+
+function updateDressingMasterCacheItem(item){
+  if(!item){
+    return;
+  }
+
+  if(!Array.isArray(dressingMasterCache)){
+    dressingMasterCache = [];
+  }
+
+  let replaced = false;
+
+  dressingMasterCache = dressingMasterCache.map(function(existing){
+    if(isSameDressingIdentityForRow(existing, item)){
+      replaced = true;
+      return Object.assign({}, existing, item);
+    }
+    return existing;
+  });
+
+  if(!replaced){
+    dressingMasterCache.unshift(item);
+  }
+}
+
+function removeDuplicateDictRowsForItem(item, keepTr){
+  Array.from(document.querySelectorAll('#dictTbody tr:not(#dictEmptyRow)')).forEach(function(row){
+    if(row === keepTr){
+      return;
+    }
+
+    if(isSameDressingIdentityForRow(getDictRowData(row), item || {})){
+      row.remove();
+    }
+  });
+
+  ensureDictEmptyRow();
+}
+
 function updateDictMainButton(tr){
   const btn = tr.querySelector('.edit-main-btn');
   if(!btn){
@@ -1646,30 +1822,40 @@ async function saveDictRow(btn){
     });
 
     if(res && res.ok){
-      tr.dataset.rowKey =
-        data.hospitalCode ||
-        data.singleGtin ||
-        data.boxGtin ||
-        '';
+      const savedItem = res.savedItem || res.data || data;
+      const existingTargetRow = findExistingRowByItem(savedItem, tr);
+
+      if(existingTargetRow){
+        const mergedItem = mergeSavedItemWithVisibleRows(savedItem, existingTargetRow, tr);
+        applyDressingItemToDictRow(existingTargetRow, mergedItem);
+        updateDressingMasterCacheItem(mergedItem);
+        setDictRowSnapshot(existingTargetRow);
+        leaveDictEditMode(existingTargetRow);
+
+        const targetStatusEl = existingTargetRow.querySelector('.dictStatus');
+        if(targetStatusEl){
+          targetStatusEl.innerText = res.mergeReason ? '已合併/儲存' : '已儲存';
+          targetStatusEl.className = 'dictStatus saved';
+        }
+
+        tr.remove();
+        removeDuplicateDictRowsForItem(mergedItem, existingTargetRow);
+        moveDictRowToTop(existingTargetRow);
+        flashDictRow(existingTargetRow);
+        showNotice('已儲存並合併重複列', 'success', '儲存完成');
+        return;
+      }
+
+      applyDressingItemToDictRow(tr, savedItem);
+      updateDressingMasterCacheItem(savedItem);
+      removeDuplicateDictRowsForItem(savedItem, tr);
 
       statusEl.innerText = res.mergeReason ? '已合併/儲存' : '已儲存';
       statusEl.className = 'dictStatus saved';
 
       setDictRowSnapshot(tr);
       leaveDictEditMode(tr);
-
-      await syncDictListIfChanged({
-        sameMessage: res.mergeReason
-          ? '資料已由後端合併；畫面與後端一致，已略過刷新。'
-          : '資料已儲存；畫面與後端一致，已略過刷新。',
-        sameTitle: '儲存完成',
-        changedMessage: res.mergeReason
-          ? '資料已由後端合併，偵測到畫面差異，已同步。'
-          : '資料已儲存，偵測到畫面差異，已同步。',
-        changedTitle: '儲存完成',
-        fallbackMessage: '儲存成功，但比對主檔失敗，已重新載入。',
-        fallbackTitle: '儲存完成'
-      });
+      showNotice('資料已儲存', 'success', '儲存完成');
       return;
     }
 
@@ -2915,11 +3101,28 @@ async function addDictRow(barcode, parsed){
   const localExistingItem = findExistingItemByGtin(scannedGtin);
   if(localExistingItem){
     const target = sameGtin(localExistingItem.boxGtin || '', scannedGtin) ? 'box' : 'single';
-    const tr = createDictRow(localExistingItem, false);
+    let tr = findExistingRowByItem(localExistingItem, null);
+
+    if(!tr){
+      tr = createDictRow(localExistingItem, false);
+      const tbody = document.getElementById('dictTbody');
+      if(tbody){
+        tbody.appendChild(tr);
+      }
+    }
+
     setRowScannedGtinTarget(tr, scannedGtin, target);
     moveDictRowToTop(tr);
-    enterDictEditMode(tr);
+
+    if(!tr.classList.contains('editing')){
+      tr.classList.add('editing');
+      setDictInputsEnabled(tr, true);
+      bindDictRowDirtyWatch(tr);
+      updateDictMainButton(tr);
+    }
+
     reapplyScannedGtinToExistingRow(tr, scannedGtin, parsed);
+    removeDuplicateDictRowsForItem(localExistingItem, tr);
     showNotice('', 'success', describeDressingItem(localExistingItem));
     return;
   }
@@ -3679,7 +3882,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.15.15-202605292132</span>
+      <span>v.2.15.15-202605292135</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
