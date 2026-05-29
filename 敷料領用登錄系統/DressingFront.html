@@ -1161,28 +1161,34 @@ function createDictRow(item, isNew){
   }
 
   tr.innerHTML = `
-    <td><input class="dict-hospital-code" value="${escapeHtml(item.hospitalCode || '')}" placeholder="院內碼"></td>
+    <td><input class="dict-hospital-code" type="number" inputmode="numeric" value="${escapeHtml(item.hospitalCode || '')}" placeholder="院內碼"></td>
     <td><input class="dict-name" value="${escapeHtml(item.dressingName || '')}" placeholder="敷料名稱"></td>
     <td><input class="dict-size" value="${escapeHtml(item.size || '')}" placeholder="規格"></td>
     <td>
       <div class="dictGtinInputGroup">
-        <input class="dict-single-gtin" value="${escapeHtml(item.singleGtin || item.gtin || '')}" placeholder="單包GTIN">
+        <input class="dict-single-gtin" type="number" inputmode="numeric" value="${escapeHtml(item.singleGtin || item.gtin || '')}" placeholder="單包GTIN">
         <button type="button" class="dictGtinScanBtn" title="掃描單包GTIN" onclick="openDictGtinScanner(this)">📷</button>
       </div>
     </td>
     <td>
       <div class="dictGtinInputGroup">
-        <input class="dict-box-gtin" value="${escapeHtml(item.boxGtin || '')}" placeholder="盒裝GTIN">
+        <input class="dict-box-gtin" type="number" inputmode="numeric" value="${escapeHtml(item.boxGtin || '')}" placeholder="盒裝GTIN">
         <button type="button" class="dictGtinScanBtn" title="掃描盒裝GTIN" onclick="openDictGtinScanner(this)">📷</button>
       </div>
     </td>
-    <td><input class="dict-box-qty" value="${escapeHtml(item.boxQuantity || '')}"></td>
-    <td><input class="dict-category" value="${escapeHtml(item.category || '')}"></td>
+    <td><input class="dict-box-qty" type="number" inputmode="numeric" value="${escapeHtml(item.boxQuantity || '')}"></td>
+    <td><input class="dict-category" type="number" inputmode="numeric" value="${escapeHtml(item.category || '')}"></td>
     <td>${makeStatusSelect(item.status || '使用中')}</td>
     <td style="white-space:nowrap;">
       <span class="dragHandle">☰</span>
       <button type="button" class="dictActionBtn edit-main-btn" onclick="handleDictMainButton(this)">${isNew ? '儲存' : '編輯'}</button>
-      <button type="button" class="dictActionBtn danger" onclick="deleteDictRow(this)">刪除</button>
+      if(tr.classList.contains('editing') && tr.dataset.isNewRow === '1'){
+        removeDressingItemFromCache(getDictRowData(tr));
+        tr.remove();
+        ensureDictEmptyRow();
+        showNotice('已刪除暫存列，快取已更新', 'success', '刪除完成');
+        return;
+      }
       <div class="dictStatus ${isNew ? '' : 'saved'}">${isNew ? '新資料，請確認後儲存' : '已建檔'}</div>
       ${isNew && item.scanMeta ? item.scanMeta : ''}
     </td>
@@ -1816,7 +1822,7 @@ async function deleteDictRow(btn){
     removeDressingItemFromCache(getDictRowData(tr));
     tr.remove();
     ensureDictEmptyRow();
-    showNotice('已刪除暫存列，快取已更新', 'success', '刪除完成');
+    showNotice('已取消新增，未儲存此筆敷料', 'success', '不儲存');
     return;
   }
 
@@ -2103,6 +2109,31 @@ function applyExistingItemToRow(tr, item, keepScannedAs){
     scannedGtin;
 }
 
+async function promptDictRowValue(row, selector, stepNumber, stepTitle, promptMessage){
+  const input = row.querySelector(selector);
+  const currentValue = input ? input.value || '' : '';
+
+  const value = await showInputDialog(
+    '步驟 ' + stepNumber + '：' + stepTitle,
+    promptMessage,
+    currentValue
+  );
+
+  if(value === null){
+    updateDictMainButton(row);
+    return null;
+  }
+
+  if(input){
+    input.disabled = false;
+    input.value = String(value).trim();
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+  }
+
+  return String(value).trim();
+}
+
 async function guideDictRowAfterScan(tr, forcedTarget){
   const scannedGtin = getScannedGtinFromRow(tr);
   if(!scannedGtin){
@@ -2268,27 +2299,28 @@ async function guideDictRowAfterScan(tr, forcedTarget){
         hospitalCodeInput.dispatchEvent(new Event('change', { bubbles:true }));
       }
 
-      if(target === 'box'){
-        const qtyInput = existingRow.querySelector('.dict-box-qty');
-        const currentQty = qtyInput ? qtyInput.value || '' : '';
+      const qty = await promptDictRowValue(
+        existingRow,
+        '.dict-box-qty',
+        '5',
+        '一盒數量',
+        '請確認一盒數量\n\n已有資料會自動帶入，可直接按確定；沒有也可以留空。'
+      );
 
-        const qty = await showInputDialog(
-          '步驟 5：一盒數量',
-          '請確認一盒數量\n\n已有資料會自動帶入，可直接按確定；沒有也可以留空。',
-          currentQty
-        );
+      if(qty === null){
+        return false;
+      }
 
-        if(qty === null){
-          updateDictMainButton(existingRow);
-          return false;
-        }
+      const price = await promptDictRowValue(
+        existingRow,
+        '.dict-category',
+        '6',
+        '自費價格',
+        '請確認自費價格\n\n已有資料會自動帶入，可直接按確定；沒有也可以留空。'
+      );
 
-        if(qtyInput){
-          qtyInput.disabled = false;
-          qtyInput.value = String(qty).trim();
-          qtyInput.dispatchEvent(new Event('input', { bubbles:true }));
-          qtyInput.dispatchEvent(new Event('change', { bubbles:true }));
-        }
+      if(price === null){
+        return false;
       }
 
       existingRow.dataset.scannedGtin = scannedGtin;
@@ -2348,26 +2380,28 @@ async function guideDictRowAfterScan(tr, forcedTarget){
     hospitalCodeInput.dispatchEvent(new Event('change', { bubbles:true }));
   }
 
-  if(target === 'box'){
-    const qtyInput = tr.querySelector('.dict-box-qty');
-    const currentQty = qtyInput ? qtyInput.value || '' : '';
+  const qty = await promptDictRowValue(
+    tr,
+    '.dict-box-qty',
+    '5',
+    '一盒數量',
+    '請確認一盒數量\n\n已有資料會自動帶入，可直接按確定；沒有也可以留空。'
+  );
 
-    const qty = await showInputDialog(
-      '步驟 5：一盒數量',
-      '請確認一盒數量\n\n已有資料會自動帶入，可直接按確定；沒有也可以留空。',
-      currentQty
-    );
+  if(qty === null){
+    return false;
+  }
 
-    if(qty === null){
-      updateDictMainButton(tr);
-      return false;
-    }
+  const price = await promptDictRowValue(
+    tr,
+    '.dict-category',
+    '6',
+    '自費價格',
+    '請確認自費價格\n\n已有資料會自動帶入，可直接按確定；沒有也可以留空。'
+  );
 
-    if(qtyInput){
-      qtyInput.value = String(qty).trim();
-      qtyInput.dispatchEvent(new Event('input', { bubbles:true }));
-      qtyInput.dispatchEvent(new Event('change', { bubbles:true }));
-    }
+  if(price === null){
+    return false;
   }
 
   const statusEl = tr.querySelector('.dictStatus');
@@ -3161,7 +3195,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.15.12-202605291948</span>
+      <span>v.2.15.13-202605292027</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
@@ -3178,6 +3212,9 @@ function normalizeTextForCompare(value){
 
 </body>
 </html>
+
+
+
 
 
 
