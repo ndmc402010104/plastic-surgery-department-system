@@ -266,6 +266,9 @@ function Push-GitHubIfRequested {
     git push
 
     if ($LASTEXITCODE -ne 0) {
+      Write-Host ""
+      Write-Host "git push 發生錯誤。如果遇到終端機權限或版本分歧問題，請嘗試手動執行：" -ForegroundColor Yellow
+      Write-Host "git push -f origin master" -ForegroundColor Cyan
       throw "git push 失敗。"
     }
 
