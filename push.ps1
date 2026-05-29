@@ -328,25 +328,53 @@ function Push-CurrentGitBranch {
     throw "無法判斷目前 Git 分支，請確認目前不是 detached HEAD。"
   }
 
-  $hasUpstream =
-    Test-GitBranchHasUpstream -BranchName $BranchName
+  Push-Location $rootPath
 
-  if ($hasUpstream) {
-    Write-Host "Pushing current branch: $BranchName" -ForegroundColor Cyan
-    git push
-  }
-  else {
-    Write-Host "目前分支尚未建立遠端追蹤，將建立 upstream：" -ForegroundColor Yellow
-    Write-Host "git push -u origin `"$BranchName`"" -ForegroundColor Cyan
-    git push -u origin $BranchName
-  }
+  try {
+    $currentUpstream =
+      git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null
 
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host ""
-    Write-Host "git push 發生錯誤。請先確認目前分支與遠端狀態：" -ForegroundColor Yellow
-    Write-Host "git status" -ForegroundColor Cyan
-    Write-Host "git branch -vv" -ForegroundColor Cyan
-    throw "git push 失敗。"
+    $hasValidUpstream =
+      $LASTEXITCODE -eq 0 -and
+      -not [string]::IsNullOrWhiteSpace($currentUpstream)
+
+    $expectedUpstream =
+      "origin/$BranchName"
+
+    if (
+      $hasValidUpstream -and
+      (($currentUpstream | Select-Object -First 1).Trim() -eq $expectedUpstream)
+    ) {
+      Write-Host "Pushing current branch: $BranchName" -ForegroundColor Cyan
+      git push
+    }
+    else {
+      Write-Host ""
+      Write-Host "目前分支尚未建立正確遠端追蹤，將建立 / 修正 upstream。" -ForegroundColor Yellow
+
+      if ($hasValidUpstream) {
+        Write-Host "目前 upstream：$currentUpstream" -ForegroundColor DarkGray
+      }
+      else {
+        Write-Host "目前 upstream：未設定" -ForegroundColor DarkGray
+      }
+
+      Write-Host "預期 upstream：$expectedUpstream" -ForegroundColor DarkGray
+      Write-Host "執行：git push -u origin HEAD" -ForegroundColor Cyan
+
+      git push -u origin HEAD
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+      Write-Host ""
+      Write-Host "git push 發生錯誤。請先確認目前分支與遠端狀態：" -ForegroundColor Yellow
+      Write-Host "git status" -ForegroundColor Cyan
+      Write-Host "git branch -vv" -ForegroundColor Cyan
+      throw "git push 失敗。"
+    }
+  }
+  finally {
+    Pop-Location
   }
 }
 
