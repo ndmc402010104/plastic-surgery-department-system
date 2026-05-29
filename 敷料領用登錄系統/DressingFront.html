@@ -777,6 +777,37 @@ tr.editing select:not(.readonly):focus{
     margin:24px auto;
   }
 }
+
+/* 桌機水平捲動修正：避免頁首/頁尾覆蓋時無法拖左右 */
+html{
+  overflow-x:auto;
+}
+
+body{
+  overflow-x:auto;
+  padding-bottom:140px;
+}
+
+.dictArea{
+  padding-bottom:96px;
+}
+
+.dictTableWrap{
+  overflow-x:scroll;
+  scrollbar-gutter:stable;
+  padding-bottom:16px;
+  cursor:grab;
+}
+
+.dictTableWrap.dragging-x{
+  cursor:grabbing;
+  user-select:none;
+}
+
+.dictTableWrap.dragging-x *{
+  user-select:none;
+}
+
 </style>
 
 <script>
@@ -1096,6 +1127,7 @@ function openDressingDict(){
   document.getElementById('formArea').style.display = 'none';
   document.getElementById('dictArea').style.display = 'block';
   loadDictList();
+  setTimeout(bindDictHorizontalDragScroll, 0);
 }
 
 function makeStatusSelect(value){
@@ -3092,6 +3124,66 @@ function debugDressingBarcode(label, data){
 
 
 
+function bindDictHorizontalDragScroll(){
+  const wrap = document.querySelector('.dictTableWrap');
+
+  if(!wrap || wrap.dataset.dragScrollBound === '1'){
+    return;
+  }
+
+  wrap.dataset.dragScrollBound = '1';
+
+  let isDown = false;
+  let startX = 0;
+  let scrollLeft = 0;
+
+  wrap.addEventListener('mousedown', function(e){
+    if(e.button !== 0){
+      return;
+    }
+
+    if(e.target.closest('input, select, button, textarea, a')){
+      return;
+    }
+
+    isDown = true;
+    startX = e.pageX - wrap.offsetLeft;
+    scrollLeft = wrap.scrollLeft;
+    wrap.classList.add('dragging-x');
+  });
+
+  wrap.addEventListener('mouseleave', function(){
+    isDown = false;
+    wrap.classList.remove('dragging-x');
+  });
+
+  wrap.addEventListener('mouseup', function(){
+    isDown = false;
+    wrap.classList.remove('dragging-x');
+  });
+
+  wrap.addEventListener('mousemove', function(e){
+    if(!isDown){
+      return;
+    }
+
+    e.preventDefault();
+    const x = e.pageX - wrap.offsetLeft;
+    const walk = x - startX;
+    wrap.scrollLeft = scrollLeft - walk;
+  });
+
+  wrap.addEventListener('wheel', function(e){
+    if(Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.shiftKey){
+      wrap.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive:false });
+}
+
+setTimeout(bindDictHorizontalDragScroll, 0);
+
+
 document.addEventListener('click', function(e){
   if(e.target.classList.contains('deleteRow')){
     const tbody = e.target.closest('tbody');
@@ -3161,7 +3253,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.15.10-202605291241</span>
+      <span>v.2.15.10-202605291244</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
