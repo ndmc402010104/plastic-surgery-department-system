@@ -270,6 +270,87 @@ function Update-ReadmeCurrentVersions {
 }
 
 
+
+function Get-CurrentGitBranch {
+  if (-not (Test-CommandExists -Name 'git')) {
+    return ''
+  }
+
+  Push-Location $rootPath
+
+  try {
+    $branch = git branch --show-current
+
+    if ($LASTEXITCODE -ne 0) {
+      return ''
+    }
+
+    return ($branch | Select-Object -First 1).Trim()
+  }
+  finally {
+    Pop-Location
+  }
+}
+
+function Test-GitBranchHasUpstream {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$BranchName
+  )
+
+  if ([string]::IsNullOrWhiteSpace($BranchName)) {
+    return $false
+  }
+
+  Push-Location $rootPath
+
+  try {
+    $upstream = git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null
+
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($upstream)) {
+      return $true
+    }
+
+    return $false
+  }
+  finally {
+    Pop-Location
+  }
+}
+
+function Push-CurrentGitBranch {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$BranchName
+  )
+
+  if ([string]::IsNullOrWhiteSpace($BranchName)) {
+    throw "無法判斷目前 Git 分支，請確認目前不是 detached HEAD。"
+  }
+
+  $hasUpstream =
+    Test-GitBranchHasUpstream -BranchName $BranchName
+
+  if ($hasUpstream) {
+    Write-Host "Pushing current branch: $BranchName" -ForegroundColor Cyan
+    git push
+  }
+  else {
+    Write-Host "目前分支尚未建立遠端追蹤，將建立 upstream：" -ForegroundColor Yellow
+    Write-Host "git push -u origin `"$BranchName`"" -ForegroundColor Cyan
+    git push -u origin $BranchName
+  }
+
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "git push 發生錯誤。請先確認目前分支與遠端狀態：" -ForegroundColor Yellow
+    Write-Host "git status" -ForegroundColor Cyan
+    Write-Host "git branch -vv" -ForegroundColor Cyan
+    throw "git push 失敗。"
+  }
+}
+
+
 function Push-GitHubIfRequested {
   param(
     [pscustomobject]$Config,
@@ -316,6 +397,16 @@ function Push-GitHubIfRequested {
     throw "找不到 git 指令，無法 commit 到 GitHub。"
   }
 
+  $currentBranch =
+    Get-CurrentGitBranch
+
+  Write-Host ""
+  Write-Host "目前 Git 分支：$currentBranch" -ForegroundColor Cyan
+
+  if ($currentBranch -ne 'master') {
+    Write-Host "注意：目前不是 master，這次會 commit / push 到目前分支。" -ForegroundColor Yellow
+  }
+
   Push-Location $rootPath
 
   try {
@@ -349,17 +440,10 @@ function Push-GitHubIfRequested {
     # 加入延遲讓 OneDrive 有時間解除暫存檔鎖定
     Start-Sleep -Seconds 2
 
-    git push
-
-    if ($LASTEXITCODE -ne 0) {
-      Write-Host ""
-      Write-Host "git push 發生錯誤。如果遇到終端機權限或版本分歧問題，請嘗試手動執行：" -ForegroundColor Yellow
-      Write-Host "git push -f origin master" -ForegroundColor Cyan
-      throw "git push 失敗。"
-    }
+    Push-CurrentGitBranch -BranchName $currentBranch
 
     Write-Host ""
-    Write-Host "GitHub updated" -ForegroundColor Green
+    Write-Host "GitHub updated on branch: $currentBranch" -ForegroundColor Green
   }
   finally {
     Pop-Location
@@ -367,6 +451,22 @@ function Push-GitHubIfRequested {
 }
 
 Save-AllOpenFiles
+
+if (Test-CommandExists -Name 'git') {
+  $startupBranch =
+    Get-CurrentGitBranch
+
+  if (-not [string]::IsNullOrWhiteSpace($startupBranch)) {
+    Write-Host ""
+    Write-Host "==========================" -ForegroundColor Cyan
+    Write-Host "目前 Git 分支：$startupBranch" -ForegroundColor Cyan
+    Write-Host "=========================="
+
+    if ($startupBranch -ne 'master') {
+      Write-Host "目前在功能/展示分支；push-github 會推送到此分支。" -ForegroundColor Yellow
+    }
+  }
+}
 
 if ($env:APP_VERSION_BUMP) {
   $Bump = $env:APP_VERSION_BUMP
