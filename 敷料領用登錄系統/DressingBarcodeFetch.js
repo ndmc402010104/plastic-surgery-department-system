@@ -373,6 +373,83 @@ function keepSubmittedValue_(value, fallback){
   return value;
 }
 
+
+function sortDressingMasterSheet_(){
+  const table = getDressingTable_();
+  const sheet = table.sheet;
+
+  if(table.values.length <= 2){
+    return;
+  }
+
+  const dataRows = table.values.slice(1).filter(function(row){
+    return row.map(String).join('').trim() !== '';
+  });
+
+  if(dataRows.length <= 1){
+    return;
+  }
+
+  const hospitalCodeCol = table.headers.indexOf(DRESSING_KEY_TO_DISPLAY_MAP.hospitalCode);
+  const gtinCol = table.gtinCol;
+  const boxGtinCol = table.boxGtinCol;
+  const nameCol = table.nameCol;
+  const sizeCol = table.sizeCol;
+
+  function cell(row, col){
+    return col >= 0 ? String(row[col] || '').trim() : '';
+  }
+
+  function normalizedText(value){
+    return String(value || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+  }
+
+  dataRows.sort(function(a, b){
+    const keysA = [
+      normalizedText(cell(a, nameCol)),
+      normalizedText(cell(a, sizeCol)),
+      normalizedText(cell(a, hospitalCodeCol)),
+      normalizeDressingCode_(cell(a, gtinCol)),
+      normalizeDressingCode_(cell(a, boxGtinCol))
+    ];
+
+    const keysB = [
+      normalizedText(cell(b, nameCol)),
+      normalizedText(cell(b, sizeCol)),
+      normalizedText(cell(b, hospitalCodeCol)),
+      normalizeDressingCode_(cell(b, gtinCol)),
+      normalizeDressingCode_(cell(b, boxGtinCol))
+    ];
+
+    for(let i = 0; i < keysA.length; i++){
+      const result = String(keysA[i]).localeCompare(String(keysB[i]), 'en', {
+        numeric:true,
+        sensitivity:'base'
+      });
+
+      if(result !== 0){
+        return result;
+      }
+    }
+
+    return 0;
+  });
+
+  const lastDataRows = Math.max(sheet.getLastRow() - 1, 0);
+  if(lastDataRows > 0){
+    sheet
+      .getRange(2, 1, lastDataRows, sheet.getLastColumn())
+      .clearContent();
+  }
+
+  sheet
+    .getRange(2, 1, dataRows.length, table.headers.length)
+    .setValues(dataRows);
+}
+
 function saveDressingBarcode_(data){
   const table = getDressingTable_();
 
@@ -556,23 +633,31 @@ function saveDressingBarcode_(data){
       .getRange(targetRow, 1, 1, table.headers.length)
       .setValues([row]);
 
+    const savedItem = addDressingAliases_(rowData);
+    sortDressingMasterSheet_();
+
     return {
       ok:true,
       mode:'updated',
       mergeReason:targetReason,
       row:targetRow,
-      data:addDressingAliases_(rowData)
+      data:savedItem,
+      savedItem:savedItem
     };
   }
 
   table.sheet.appendRow(row);
+
+  const savedItem = addDressingAliases_(rowData);
+  sortDressingMasterSheet_();
 
   return {
     ok:true,
     mode:'created',
     mergeReason:'',
     row:table.sheet.getLastRow(),
-    data:addDressingAliases_(rowData)
+    data:savedItem,
+    savedItem:savedItem
   };
 }
 
