@@ -948,6 +948,18 @@ function getDictDirtyCount(){
   }
 }
 
+function getDictEditingCount(){
+  try{
+    return document.querySelectorAll('#dictTbody tr.editing:not(#dictEmptyRow)').length;
+  } catch(error){
+    return 0;
+  }
+}
+
+function hasDictEditingRows(){
+  return getDictEditingCount() > 0;
+}
+
 function getDictNextIdleMode(){
   if(isReorderMode){
     return 'reordering';
@@ -959,7 +971,11 @@ function getDictNextIdleMode(){
     return 'adding';
   }
 
-  return getDictDirtyCount() > 0 ? 'editing' : 'clean';
+  if(hasDictEditingRows()){
+    return 'editing';
+  }
+
+  return 'clean';
 }
 
 function syncDictTableModeFromRows(){
@@ -974,7 +990,9 @@ function syncDictTableModeFromRows(){
 function renderDictTableControls(){
   const busy = isDictTableBusy();
   const dirtyCount = getDictDirtyCount();
+  const editingCount = getDictEditingCount();
   const hasDirtyRows = dirtyCount > 0;
+  const hasEditingRows = editingCount > 0;
   const ready = dictLoaded && DICT_TABLE_STATE.mode !== 'error';
   const blockNormalActions = busy || isReorderMode;
 
@@ -990,14 +1008,14 @@ function renderDictTableControls(){
   const saveOrderBtn = document.getElementById('saveOrderBtn');
   const batchSaveBtn = document.getElementById('batchSaveBtn');
 
-  if(scanBtn) scanBtn.disabled = !ready || blockNormalActions || hasDirtyRows;
-  if(testSingleBtn) testSingleBtn.disabled = !ready || blockNormalActions || hasDirtyRows;
-  if(testBoxBtn) testBoxBtn.disabled = !ready || blockNormalActions || hasDirtyRows;
+  if(scanBtn) scanBtn.disabled = !ready || blockNormalActions || hasEditingRows;
+  if(testSingleBtn) testSingleBtn.disabled = !ready || blockNormalActions || hasEditingRows;
+  if(testBoxBtn) testBoxBtn.disabled = !ready || blockNormalActions || hasEditingRows;
 
   if(reorderBtn){
-    reorderBtn.disabled = !ready || busy || hasDirtyRows;
+    reorderBtn.disabled = !ready || busy || hasEditingRows;
     if(!isReorderMode){
-      reorderBtn.title = hasDirtyRows ? '有未儲存變更時不能排序' : '';
+      reorderBtn.title = hasEditingRows ? '有正在編輯或未儲存的列時不能排序' : '';
     }
   }
 
@@ -2450,8 +2468,8 @@ function openDictGtinScanner(button){
 }
 
 function startDictScanner(){
-  if(isDictTableBusy() || isReorderMode || getDictDirtyCount() > 0){
-    showNotice('請先儲存或取消目前變更，再開啟掃描', 'warning', '尚有未完成變更');
+  if(isDictTableBusy() || isReorderMode || hasDictEditingRows()){
+    showNotice('請先儲存、返回或取消目前編輯，再開啟掃描', 'warning', '尚有未完成變更');
     return;
   }
 
@@ -2473,6 +2491,11 @@ function manualDictScanForDebug(barcode){
 }
 
 function triggerHydrocleanCavityTest(type){
+  if(isDictTableBusy() || isReorderMode || hasDictEditingRows()){
+    showNotice('請先儲存、返回或取消目前編輯，再測試條碼。', 'warning', '尚有未完成變更');
+    return;
+  }
+
   if(!dictLoaded || dressingMasterCache === null){
     showNotice('請先等敷料主檔讀取完成，再測試條碼。', 'warning');
     return;
@@ -3368,8 +3391,8 @@ function toggleReorderMode(){
     return;
   }
 
-  if(getDictDirtyCount() > 0){
-    showNotice('請先儲存或取消編輯，再更改排序', 'warning', '尚有未儲存變更');
+  if(hasDictEditingRows()){
+    showNotice('請先儲存、返回或取消編輯，再更改排序', 'warning', '尚有未儲存變更');
     return;
   }
 
@@ -4105,7 +4128,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.16.0-202605292201</span>
+      <span>v.2.16.0-202605292205</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
