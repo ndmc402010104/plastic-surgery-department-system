@@ -1,170 +1,175 @@
+<style>
 /* =====================================
    SKH Design System v1
    01_按鈕 / UiButton
 ===================================== */
 
-
-/* 基底按鈕 */
-
 .skh-btn{
-
-  border:none;
-
-  border-radius:
-    var(--skh-radius);
-
-  padding:
-    10px 16px;
-
+  border:1px solid transparent;
+  border-radius:var(--skh-radius);
+  padding:10px 16px;
   font-size:14px;
-
-  font-weight:600;
-
+  font-weight:700;
   cursor:pointer;
-
   transition:
-    var(--skh-transition);
-
+    transform var(--skh-transition),
+    box-shadow var(--skh-transition),
+    background var(--skh-transition),
+    border-color var(--skh-transition),
+    color var(--skh-transition);
   display:inline-flex;
-
   align-items:center;
-
   justify-content:center;
-
   gap:6px;
-
+  white-space:nowrap;
+  user-select:none;
+  line-height:1.2;
 }
-
-
-/* Hover */
 
 .skh-btn:hover{
-
-  transform:
-    translateY(-1px);
-
+  transform:translateY(-1px);
+  box-shadow:0 8px 20px rgba(15,23,42,.08);
 }
-
-
-/* Active */
 
 .skh-btn:active{
-
-  transform:
-    translateY(1px);
-
+  transform:translateY(0);
+  box-shadow:0 3px 10px rgba(15,23,42,.06);
 }
 
+.skh-btn:focus-visible{
+  outline:3px solid rgba(37,99,235,.25);
+  outline-offset:2px;
+}
 
-/* Disabled */
-
-.skh-btn:disabled{
-
+.skh-btn:disabled,
+.skh-btn.is-disabled{
   opacity:.5;
-
   cursor:not-allowed;
-
   transform:none;
-
+  box-shadow:none;
+  pointer-events:none;
 }
 
-
-
-/* =====================================
-   Primary
-===================================== */
+/* Role */
 
 .skh-btn-primary{
-
-  background:
-    var(--skh-primary);
-
+  background:var(--skh-primary);
   color:white;
-
 }
-
-
-
-/* =====================================
-   Secondary
-===================================== */
 
 .skh-btn-secondary{
-
-  background:
-    #64748b;
-
-  color:white;
-
+  background:#eef2f7;
+  color:#334155;
+  border-color:#d6dde7;
 }
-
-
-
-/* =====================================
-   Success
-===================================== */
-
-.skh-btn-success{
-
-  background:
-    var(--skh-success);
-
-  color:white;
-
-}
-
-
-
-/* =====================================
-   Danger
-===================================== */
 
 .skh-btn-danger{
-
-  background:
-    var(--skh-danger);
-
-  color:white;
-
+  background:#fee2e2;
+  color:#991b1b;
+  border-color:#fecaca;
 }
 
+.skh-btn-ghost{
+  background:transparent;
+  color:var(--skh-primary);
+  border-color:transparent;
+  box-shadow:none;
+}
 
-
-/* =====================================
-   Camera
-===================================== */
+.skh-btn-ghost:hover{
+  background:#eff6ff;
+  box-shadow:none;
+}
 
 .skh-btn-camera{
-
-  background:
-    #7c3aed;
-
+  background:#7c3aed;
   color:white;
-
 }
 
-
-
-/* =====================================
-   Size
-===================================== */
+/* Size */
 
 .skh-btn-sm{
-
-  padding:
-    6px 12px;
-
+  padding:6px 10px;
   font-size:13px;
-
 }
-
-
 
 .skh-btn-lg{
-
-  padding:
-    12px 20px;
-
+  padding:14px 20px;
   font-size:16px;
-
 }
+
+.skh-btn-full{
+  width:100%;
+}
+
+/* Shape */
+
+.skh-btn-icon{
+  width:36px;
+  height:36px;
+  padding:0;
+  flex:0 0 auto;
+}
+
+.skh-btn-pill{
+  border-radius:999px;
+}
+
+/* State */
+
+.skh-btn-selected{
+  background:var(--skh-primary);
+  color:white;
+  border-color:var(--skh-primary);
+}
+
+.skh-btn-loading{
+  pointer-events:none;
+  opacity:.85;
+}
+
+.skh-btn-loading::before{
+  content:'';
+  width:14px;
+  height:14px;
+  border:2px solid rgba(255,255,255,.35);
+  border-top-color:currentColor;
+  border-radius:50%;
+  animation:skhSpin .8s linear infinite;
+  flex:0 0 auto;
+}
+
+@keyframes skhSpin{
+  from{ transform:rotate(0deg); }
+  to{ transform:rotate(360deg); }
+}
+
+/* Group */
+
+.skh-btn-group{
+  display:inline-flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+
+.skh-btn-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+
+/* Mobile */
+
+@media(max-width:640px){
+  .skh-btn{
+    min-height:44px;
+  }
+
+  .skh-btn-icon{
+    width:44px;
+    height:44px;
+  }
+}
+</style>

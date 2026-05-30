@@ -1,473 +1,620 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SKH UI Test Page</title>
-  <style>
-    <?!= include('共用設定檔/UI設定/00_基礎/UiStyle'); ?>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 
-    <?!= include('共用設定檔/UI設定/01_按鈕/UiButton'); ?>
+<title>SKH CSS 測試頁</title>
 
-    <?!= include('共用設定檔/UI設定/02_表單/UiForm'); ?>
+<?!= include('共用設定檔/UI設定/00_基礎/UiStyle') ?>
+<?!= include('共用設定檔/UI設定/01_按鈕/UiButton') ?>
+<?!= include('共用設定檔/UI設定/02_表單/UiForm') ?>
+<?!= include('共用設定檔/UI設定/03_表格/UiTable') ?>
+<?!= include('共用設定檔/UI設定/04_提示/UiAlert') ?>
+<?!= include('共用設定檔/UI設定/05_互動/UiLoading') ?>
+<?!= include('共用設定檔/UI設定/05_互動/UiModal') ?>
 
-    <?!= include('共用設定檔/UI設定/03_表格/UiTable'); ?>
+<style>
+body{
+  margin:0;
+  padding:32px;
+  background:var(--skh-bg);
+  color:var(--skh-text);
+  font-family:Arial,"Noto Sans TC","Microsoft JhengHei",sans-serif;
+}
 
-    <?!= include('共用設定檔/UI設定/04_提示/UiAlert'); ?>
+.testPage{
+  max-width:1180px;
+  margin:0 auto;
+}
 
-    <?!= include('共用設定檔/UI設定/05_互動/UiLoading'); ?>
-    <?!= include('共用設定檔/UI設定/05_互動/UiModal'); ?>
-  </style>
+.testHeader{
+  margin-bottom:28px;
+}
+
+.testHeader h1{
+  margin:0 0 8px;
+  font-size:34px;
+}
+
+.testHeader p{
+  margin:0;
+  color:var(--skh-muted);
+}
+
+.testSection{
+  background:white;
+  border:1px solid var(--skh-line);
+  border-radius:var(--skh-radius);
+  padding:24px;
+  margin-bottom:22px;
+  box-shadow:var(--skh-shadow);
+}
+
+.testSection h2{
+  margin:0 0 8px;
+  font-size:22px;
+}
+
+.testNote{
+  margin:0 0 18px;
+  color:var(--skh-muted);
+  line-height:1.7;
+}
+
+.testSubhead{
+  margin:24px 0 10px;
+  font-size:16px;
+  font-weight:800;
+  color:#1e293b;
+}
+
+.testTable{
+  width:100%;
+  border-collapse:collapse;
+  margin-bottom:18px;
+}
+
+.testTable th{
+  background:#f8fafc;
+  text-align:left;
+  padding:12px;
+  border:1px solid var(--skh-line);
+  font-size:14px;
+}
+
+.testTable td{
+  padding:12px;
+  border:1px solid var(--skh-line);
+  vertical-align:middle;
+}
+
+.testTable code{
+  background:#eef2f7;
+  padding:3px 6px;
+  border-radius:6px;
+  font-size:13px;
+  display:inline-block;
+  margin:2px 0;
+}
+
+.testDemoBox{
+  border:1px dashed var(--skh-line);
+  border-radius:var(--skh-radius);
+  padding:14px;
+  background:#f8fafc;
+}
+
+.testRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+
+@media(max-width:900px){
+  body{
+    padding:18px;
+  }
+
+  .testTable{
+    display:block;
+    overflow-x:auto;
+    white-space:nowrap;
+  }
+}
+</style>
 </head>
+
 <body>
-  <header class="skh-header">
-    <div class="skh-header-row">
-      <div>
-        <h1 class="skh-title">SKH UI Test Page</h1>
-        <p class="skh-subtitle">Button / Text / Form / List / Table / Alert / Modal / Loading 測試頁</p>
-      </div>
-      <button class="skh-btn skh-btn-camera" onclick="showToast()">📷 開啟相機掃描</button>
-    </div>
-  </header>
 
-  <main class="skh-page">
+<main class="testPage">
 
-    <div class="skh-alert skh-alert-info">
-      <span class="skh-alert-title">SKH Design System v1.0 測試頁</span>
-      <span class="skh-alert-body">每次修改 UI CSS 後，先跑本頁 checklist，再套到 FrontIndex / DressingFront。</span>
-    </div>
+<header class="testHeader">
+  <h1>SKH CSS 測試頁</h1>
+  <p>一頁式測試：每個元件第一列都是「最原始基底」，後面才是疊加變化。</p>
+</header>
 
+<section class="testSection">
+  <h2>00 UiStyle / 基礎變數</h2>
+  <p class="testNote">全站共用變數。其他 CSS 都會依賴這些變數。</p>
 
-    <section class="skh-card">
-      <h2 class="skh-section-title">0. UI Regression Checklist</h2>
-      <p style="color:var(--skh-muted);margin-top:0">
-        每次修改共用 CSS 後，先在這一頁把下列項目快速勾過，再套到 FrontIndex / DressingFront。
-      </p>
+  <table class="testTable">
+    <thead>
+      <tr>
+        <th>用途</th>
+        <th>CSS / 變數</th>
+        <th>演示</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>最原始頁面背景，所有頁面底色</td>
+        <td><code>var(--skh-bg)</code></td>
+        <td><div class="testDemoBox">頁面背景 / 測試卡片</div></td>
+      </tr>
+      <tr>
+        <td>主要文字顏色</td>
+        <td><code>var(--skh-text)</code></td>
+        <td>這是主要文字</td>
+      </tr>
+      <tr>
+        <td>次要文字顏色，說明文字用</td>
+        <td><code>var(--skh-muted)</code></td>
+        <td style="color:var(--skh-muted);">這是次要說明文字</td>
+      </tr>
+      <tr>
+        <td>卡片、邊線、圓角、陰影</td>
+        <td>
+          <code>var(--skh-line)</code><br>
+          <code>var(--skh-radius)</code><br>
+          <code>var(--skh-shadow)</code>
+        </td>
+        <td><div class="testDemoBox">卡片區塊</div></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
-      <div class="skh-grid">
-        <div>
-          <h3 class="skh-section-title" style="font-size:15px">Button</h3>
-          <label class="skh-radio"><input type="checkbox"> Primary Button 正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> Secondary Button 正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> Success Button 正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> Danger Button 正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> Camera Button 正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> Disabled / Loading 狀態正常</label>
-        </div>
+<section class="testSection">
+  <h2>01 UiButton / 按鈕</h2>
+  <p class="testNote">
+    Button 採用「基底 + 疊加」設計。先測單一零件，再看專案實際組合。
+  </p>
 
-        <div>
-          <h3 class="skh-section-title" style="font-size:15px">元件</h3>
-          <label class="skh-radio"><input type="checkbox"> Alert 顯示正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> Table 不跑版</label><br>
-          <label class="skh-radio"><input type="checkbox"> Form 對齊正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> Modal 可開啟/關閉</label><br>
-          <label class="skh-radio"><input type="checkbox"> Toast 不遮住主要操作</label>
-        </div>
+  <div class="testSubhead">A. 基底 / 必須</div>
 
-        <div>
-          <h3 class="skh-section-title" style="font-size:15px">真實場景</h3>
-          <label class="skh-radio"><input type="checkbox"> 敷料建檔列正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> 病人領用區正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> 批次儲存工具列正常</label><br>
-          <label class="skh-radio"><input type="checkbox"> 手機版按鈕不擠出畫面</label><br>
-          <label class="skh-radio"><input type="checkbox"> Apps Script include 正常</label>
-        </div>
-      </div>
-    </section>
+  <table class="testTable">
+    <thead>
+      <tr>
+        <th>用途</th>
+        <th>CSS</th>
+        <th>疊加內容</th>
+        <th>演示</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>所有按鈕的最原始基底。任何按鈕都必須先加這個。</td>
+        <td><code>.skh-btn</code></td>
+        <td>圓角、padding、字重、hover、active、focus、inline-flex、gap。</td>
+        <td><button class="skh-btn">Base Button</button></td>
+      </tr>
+    </tbody>
+  </table>
 
+  <div class="testSubhead">B. 角色 / Role：只改顏色語意</div>
 
-    <section class="skh-card">
-      <h2 class="skh-section-title">1. Buttons：正常狀態</h2>
-      <div class="skh-row">
-        <button class="skh-btn skh-btn-primary">儲存</button>
-        <button class="skh-btn skh-btn-secondary">取消</button>
-        <button class="skh-btn skh-btn-success">新增</button>
-        <button class="skh-btn skh-btn-danger">刪除</button>
-        <button class="skh-btn skh-btn-warning">重新整理</button>
-        <button class="skh-btn skh-btn-camera">📷 掃描</button>
-        <button class="skh-btn skh-btn-ghost">返回</button>
-      </div>
-    </section>
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>主要操作：儲存、送出、查詢。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-primary</code></td>
+        <td>在基底上疊加：藍色背景、白色文字。</td>
+        <td><button class="skh-btn skh-btn-primary">儲存</button></td>
+      </tr>
 
-    <section class="skh-card">
-      <h2 class="skh-section-title">2. Buttons：尺寸 / Disabled / Loading</h2>
-      <div class="skh-row" style="margin-bottom:10px">
-        <button class="skh-btn skh-btn-primary skh-btn-sm">小按鈕</button>
-        <button class="skh-btn skh-btn-primary">標準按鈕</button>
-        <button class="skh-btn skh-btn-primary skh-btn-lg">大型按鈕</button>
-      </div>
-      <div class="skh-row">
-        <button class="skh-btn skh-btn-primary" disabled>Disabled</button>
-        <button class="skh-btn skh-btn-success" disabled>新增中不可按</button>
-        <button class="skh-btn skh-btn-danger" disabled>刪除鎖定</button>
-        <button class="skh-btn skh-btn-primary"><span class="skh-spinner"></span>儲存中...</button>
-        <button class="skh-btn skh-btn-camera"><span class="skh-spinner"></span>掃描中...</button>
-      </div>
-    </section>
+      <tr>
+        <td>次要操作：取消、關閉、返回。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-secondary</code></td>
+        <td>在基底上疊加：灰藍背景、白色文字。</td>
+        <td><button class="skh-btn skh-btn-secondary">取消</button></td>
+      </tr>
 
-    <section class="skh-card">
-      <h2 class="skh-section-title">3. Text / Badge / Alert</h2>
-      <p>這是一段一般文字。用來測試字體、行高、閱讀感，以及醫院電腦上是否清楚。</p>
-      <p style="color:var(--skh-muted)">這是一段輔助文字，通常用在說明、版本號、欄位提示。</p>
-      <div class="skh-row">
-        <span class="skh-badge">一般</span>
-        <span class="skh-badge skh-badge-success">成功</span>
-        <span class="skh-badge skh-badge-warning">警告</span>
-        <span class="skh-badge skh-badge-danger">錯誤</span>
-      </div>
-      <div class="skh-alert skh-alert-info">查詢中：正在比對本機快取與後端資料。</div>
-      <div class="skh-alert skh-alert-success">儲存成功：資料已寫入。</div>
-      <div class="skh-alert skh-alert-warning">注意：尚有未儲存變更。</div>
-      <div class="skh-alert skh-alert-danger">錯誤：找不到對應敷料主檔。</div>
-    </section>
+      <tr>
+        <td>危險操作：刪除、清空、停用。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-danger</code></td>
+        <td>在基底上疊加：紅色背景、白色文字。</td>
+        <td><button class="skh-btn skh-btn-danger">刪除</button></td>
+      </tr>
 
-    <section class="skh-card">
-      <h2 class="skh-section-title">4. Form 元件</h2>
-      <div class="skh-grid">
-        <div class="skh-field">
-          <label class="skh-label">病歷號</label>
-          <input class="skh-input" placeholder="例如 12345678">
-        </div>
-        <div class="skh-field">
-          <label class="skh-label">敷料名稱</label>
-          <input class="skh-input" value="Aquacel Ag+">
-        </div>
-        <div class="skh-field">
-          <label class="skh-label">支付類別</label>
+      <tr>
+        <td>低干擾操作：首頁、麵包屑、次要返回。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-ghost</code></td>
+        <td>在基底上疊加：透明背景、藍色文字、hover 淡藍底。</td>
+        <td><button class="skh-btn skh-btn-ghost">返回首頁</button></td>
+      </tr>
+
+      <tr>
+        <td>相機 / 掃描專用：GTIN、QR、條碼掃描。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-camera</code></td>
+        <td>在基底上疊加：紫色背景、白色文字。</td>
+        <td><button class="skh-btn skh-btn-camera">📷 掃描</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="testSubhead">C. 尺寸 / Size：只改大小，不改顏色</div>
+
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>標準尺寸。這就是 <code>.skh-btn</code> 的原始尺寸。</td>
+        <td><code>.skh-btn</code></td>
+        <td>基底尺寸：標準 padding、標準字體大小。</td>
+        <td><button class="skh-btn">Normal Size</button></td>
+      </tr>
+
+      <tr>
+        <td>小尺寸。表格內編輯、刪除、掃描使用。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-sm</code></td>
+        <td>在基底上疊加：padding 變小、字體變小。</td>
+        <td><button class="skh-btn skh-btn-sm">Small</button></td>
+      </tr>
+
+      <tr>
+        <td>大尺寸。手機主操作、簽到送出使用。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-lg</code></td>
+        <td>在基底上疊加：padding 變大、字體變大。</td>
+        <td><button class="skh-btn skh-btn-lg">Large</button></td>
+      </tr>
+
+      <tr>
+        <td>滿版寬度。手機主操作或單一重要操作使用。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-full</code></td>
+        <td>在基底上疊加：寬度變成 100%。</td>
+        <td><button class="skh-btn skh-btn-full">Full Width</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="testSubhead">D. 形狀 / Shape：只改外型，不改顏色</div>
+
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>一般圓角。這就是 <code>.skh-btn</code> 的原始形狀。</td>
+        <td><code>.skh-btn</code></td>
+        <td>使用基底的 <code>border-radius: var(--skh-radius)</code>。</td>
+        <td><button class="skh-btn">Normal Shape</button></td>
+      </tr>
+
+      <tr>
+        <td>純 icon 按鈕。表格操作、掃描、刪除常用。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-icon</code></td>
+        <td>在基底上疊加：固定寬高、移除 padding，讓 icon 置中。</td>
+        <td><button class="skh-btn skh-btn-icon">✏️</button></td>
+      </tr>
+
+      <tr>
+        <td>膠囊型。分類、狀態切換、標籤式按鈕使用。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-pill</code></td>
+        <td>在基底上疊加：圓角變成 999px。</td>
+        <td><button class="skh-btn skh-btn-pill">Pill</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="testSubhead">E. 狀態 / State：只改互動狀態</div>
+
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>正常可點擊狀態。這就是基底按鈕的預設互動。</td>
+        <td><code>.skh-btn</code></td>
+        <td>基底提供 hover 上浮、active 回彈、focus 外框。</td>
+        <td><button class="skh-btn">可點擊</button></td>
+      </tr>
+
+      <tr>
+        <td>載入中。Apps Script 等待、儲存中、防止重複點擊。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-loading</code></td>
+        <td>在基底上疊加：左側 spinner、透明度下降、禁止點擊。</td>
+        <td><button class="skh-btn skh-btn-loading">Loading</button></td>
+      </tr>
+
+      <tr>
+        <td>已選取。Toggle、職級、健保/自費切換使用。</td>
+        <td><code>.skh-btn</code><br><code>.skh-btn-selected</code></td>
+        <td>在基底上疊加：選取背景、選取文字色、選取邊框。</td>
+        <td><button class="skh-btn skh-btn-selected">Selected</button></td>
+      </tr>
+
+      <tr>
+        <td>禁用。不可操作，也不應該 hover 上浮。</td>
+        <td><code>.skh-btn</code><br><code>disabled</code></td>
+        <td>在基底上疊加：透明度下降、游標禁止、取消陰影與位移、禁止點擊。</td>
+        <td><button class="skh-btn" disabled>Disabled</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="testSubhead">F. 群組 / Group：只負責排列，不負責顏色</div>
+
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>按鈕群組。多個同類選項並排，例如健保/自費。</td>
+        <td><code>.skh-btn-group</code></td>
+        <td>提供 inline-flex、gap、wrap。它不提供顏色，顏色由子按鈕決定。</td>
+        <td>
+          <div class="skh-btn-group">
+            <button class="skh-btn">A</button>
+            <button class="skh-btn">B</button>
+          </div>
+        </td>
+      </tr>
+
+      <tr>
+        <td>工具列。後台、建檔、匯出、排序常用。</td>
+        <td><code>.skh-btn-toolbar</code></td>
+        <td>提供 flex、gap、wrap。它不提供顏色，顏色由子按鈕決定。</td>
+        <td>
+          <div class="skh-btn-toolbar">
+            <button class="skh-btn">新增</button>
+            <button class="skh-btn">匯出</button>
+            <button class="skh-btn">排序</button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="testSubhead">G. 專案實際組合：這裡才開始混搭</div>
+
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>敷料建檔：批次儲存</td>
+        <td>
+          <code>.skh-btn</code><br>
+          <code>.skh-btn-primary</code><br>
+          <code>.skh-btn-full</code>
+        </td>
+        <td>基底 + 主要藍色 + 滿版寬度。</td>
+        <td><button class="skh-btn skh-btn-primary skh-btn-full">批次儲存</button></td>
+      </tr>
+
+      <tr>
+        <td>敷料建檔：表格內刪除列</td>
+        <td>
+          <code>.skh-btn</code><br>
+          <code>.skh-btn-danger</code><br>
+          <code>.skh-btn-sm</code>
+        </td>
+        <td>基底 + 危險紅色 + 小尺寸。</td>
+        <td><button class="skh-btn skh-btn-danger skh-btn-sm">刪除列</button></td>
+      </tr>
+
+      <tr>
+        <td>敷料建檔：GTIN 掃描</td>
+        <td>
+          <code>.skh-btn</code><br>
+          <code>.skh-btn-camera</code><br>
+          <code>.skh-btn-sm</code>
+        </td>
+        <td>基底 + 相機紫色 + 小尺寸。</td>
+        <td><button class="skh-btn skh-btn-camera skh-btn-sm">📷 GTIN</button></td>
+      </tr>
+
+      <tr>
+        <td>QR 簽到：送出簽到</td>
+        <td>
+          <code>.skh-btn</code><br>
+          <code>.skh-btn-primary</code><br>
+          <code>.skh-btn-lg</code>
+        </td>
+        <td>基底 + 主要藍色 + 大尺寸。</td>
+        <td><button class="skh-btn skh-btn-primary skh-btn-lg">送出簽到</button></td>
+      </tr>
+
+      <tr>
+        <td>後台：儲存中</td>
+        <td>
+          <code>.skh-btn</code><br>
+          <code>.skh-btn-primary</code><br>
+          <code>.skh-btn-loading</code>
+        </td>
+        <td>基底 + 主要藍色 + spinner + 禁止重複點擊。</td>
+        <td><button class="skh-btn skh-btn-primary skh-btn-loading">儲存中</button></td>
+      </tr>
+
+      <tr>
+        <td>Toggle：健保 / 自費</td>
+        <td>
+          <code>.skh-btn-group</code><br>
+          <code>.skh-btn</code><br>
+          <code>.skh-btn-selected</code><br>
+          <code>.skh-btn-secondary</code>
+        </td>
+        <td>群組排列 + 選取藍色 + 次要按鈕。</td>
+        <td>
+          <div class="skh-btn-group">
+            <button class="skh-btn skh-btn-selected">健保</button>
+            <button class="skh-btn skh-btn-secondary">自費</button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="testSection">
+  <h2>02 UiForm / 表單</h2>
+  <p class="testNote">每個表單元件第一列都是原始基底。</p>
+
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>最原始輸入框基底，病歷號、姓名、GTIN 都可用</td>
+        <td><code>.skh-input</code></td>
+        <td><input class="skh-input" placeholder="請輸入病歷號"></td>
+      </tr>
+      <tr>
+        <td>最原始下拉選單，敷料分類、狀態使用</td>
+        <td><code>.skh-select</code></td>
+        <td>
           <select class="skh-select">
-            <option>健保</option>
-            <option>自費</option>
+            <option>泡棉</option>
+            <option>Ag</option>
+            <option>藻酸鹽</option>
           </select>
-        </div>
-        <div class="skh-field">
-          <label class="skh-label">計價狀態</label>
+        </td>
+      </tr>
+      <tr>
+        <td>最原始文字區，備註使用</td>
+        <td><code>.skh-textarea</code></td>
+        <td><textarea class="skh-textarea" rows="3" placeholder="備註"></textarea></td>
+      </tr>
+      <tr>
+        <td>最原始 radio 群組，健保/自費、已計價/未計價使用</td>
+        <td><code>.skh-radio-group</code><br><code>.skh-radio</code></td>
+        <td>
           <div class="skh-radio-group">
-            <label class="skh-radio"><input type="radio" name="charge" checked> 未計價</label>
-            <label class="skh-radio"><input type="radio" name="charge"> 已計價</label>
+            <label class="skh-radio"><input type="radio" name="pay" checked>健保</label>
+            <label class="skh-radio"><input type="radio" name="pay">自費</label>
           </div>
-        </div>
-      </div>
-      <div class="skh-field">
-        <label class="skh-label">備註</label>
-        <textarea class="skh-textarea" rows="3" placeholder="輸入備註"></textarea>
-      </div>
-    </section>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
+<section class="testSection">
+  <h2>03 UiTable / 表格</h2>
+  <p class="testNote">表格第一列測最原始資料表。</p>
 
-    <section class="skh-card">
-      <h2 class="skh-section-title">4-1. Form Error / Warning / Disabled 測試</h2>
-
-      <div class="skh-grid">
-        <div class="skh-field is-error">
-          <label class="skh-label">病歷號</label>
-          <input class="skh-input" value="123">
-          <div class="skh-error-text">病歷號格式錯誤，請確認是否為 8 碼。</div>
-        </div>
-
-        <div class="skh-field is-warning">
-          <label class="skh-label">敷料 GTIN</label>
-          <input class="skh-input" value="04052199255484">
-          <div class="skh-help">此 GTIN 已存在，請確認是否重複建檔。</div>
-        </div>
-
-        <div class="skh-field">
-          <label class="skh-label">停用欄位</label>
-          <input class="skh-input" value="已鎖定不可編輯" disabled>
-          <div class="skh-help">測試 disabled 狀態是否明顯。</div>
-        </div>
-
-        <div class="skh-field">
-          <label class="skh-label">Checkbox</label>
-          <div class="skh-checkbox-group">
-            <label class="skh-checkbox"><input type="checkbox" checked> 啟用</label>
-            <label class="skh-checkbox"><input type="checkbox"> 需審核</label>
-            <label class="skh-checkbox"><input type="checkbox"> 自費品項</label>
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>最原始表格容器 + 表格，支援資料表與手機橫向捲動</td>
+        <td><code>.skh-table-wrap</code><br><code>.skh-table</code></td>
+        <td>
+          <div class="skh-table-wrap">
+            <table class="skh-table">
+              <thead>
+                <tr>
+                  <th>操作</th>
+                  <th>敷料名稱</th>
+                  <th>數量</th>
+                  <th>支付</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><button class="skh-btn skh-btn-danger skh-btn-sm">刪除</button></td>
+                  <td>Aquacel Ag+</td>
+                  <td>1</td>
+                  <td>健保</td>
+                </tr>
+                <tr>
+                  <td><button class="skh-btn skh-btn-secondary skh-btn-sm">編輯</button></td>
+                  <td>Mepilex Ag</td>
+                  <td>2</td>
+                  <td>自費</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-      </div>
-    </section>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
+<section class="testSection">
+  <h2>04 UiAlert / 提示</h2>
+  <p class="testNote">第一列為最原始提示框，後面才是狀態顏色。</p>
 
-    <section class="skh-card">
-      <h2 class="skh-section-title">5. List / Checklist</h2>
-      <ul class="skh-list">
-        <li>Primary：儲存、送出、查詢</li>
-        <li>Secondary：返回、取消</li>
-        <li>Success：新增病人、新增列</li>
-        <li>Danger：刪除、移除</li>
-        <li>Camera：開啟相機掃描、重新掃描</li>
-        <li>Loading：AJAX 執行中，避免重複點擊</li>
-      </ul>
-    </section>
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>最原始提示框，一般訊息 / 查詢中</td>
+        <td><code>.skh-alert</code></td>
+        <td><div class="skh-alert">查詢中...</div></td>
+      </tr>
+      <tr>
+        <td>成功提示，儲存成功、建檔成功</td>
+        <td><code>.skh-alert</code><br><code>.skh-alert-success</code></td>
+        <td><div class="skh-alert skh-alert-success">儲存成功</div></td>
+      </tr>
+      <tr>
+        <td>警告提示，尚未儲存、資料可能重複</td>
+        <td><code>.skh-alert</code><br><code>.skh-alert-warning</code></td>
+        <td><div class="skh-alert skh-alert-warning">尚有未儲存資料</div></td>
+      </tr>
+      <tr>
+        <td>錯誤提示，儲存失敗、查詢失敗</td>
+        <td><code>.skh-alert</code><br><code>.skh-alert-error</code></td>
+        <td><div class="skh-alert skh-alert-error">儲存失敗</div></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
-    <section class="skh-card">
-      <div class="skh-toolbar">
-        <h2 class="skh-section-title" style="margin:0">6. Table 測試</h2>
-        <div class="skh-row">
-          <button class="skh-btn skh-btn-success skh-btn-sm">＋新增列</button>
-          <button class="skh-btn skh-btn-primary skh-btn-sm">批次儲存</button>
-          <button class="skh-btn skh-btn-secondary skh-btn-sm">重新整理</button>
-        </div>
-      </div>
-      <div class="skh-table-wrap">
-        <table class="skh-table">
-          <thead>
-            <tr>
-              <th>操作</th>
-              <th>計價狀態</th>
-              <th>敷料名稱</th>
-              <th>數量</th>
-              <th>支付類別</th>
-              <th>主治醫師</th>
-              <th>狀態</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><button class="skh-btn skh-btn-danger skh-btn-sm">刪除</button></td>
-              <td><span class="skh-badge skh-badge-warning">未計價</span></td>
-              <td>Aquacel Ag+ 15*15</td>
-              <td>1</td>
-              <td>健保</td>
-              <td>林醫師</td>
-              <td><span class="skh-badge skh-badge-success">可儲存</span></td>
-            </tr>
-            <tr>
-              <td><button class="skh-btn skh-btn-danger skh-btn-sm" disabled>刪除</button></td>
-              <td><span class="skh-badge">已計價</span></td>
-              <td>Mepilex Ag 17.5*17.5</td>
-              <td>2</td>
-              <td>自費</td>
-              <td>陳醫師</td>
-              <td><span class="skh-badge">已鎖定</span></td>
-            </tr>
-            <tr>
-              <td><button class="skh-btn skh-btn-camera skh-btn-sm">掃描</button></td>
-              <td><span class="skh-badge skh-badge-danger">錯誤</span></td>
-              <td>未知條碼</td>
-              <td>1</td>
-              <td>健保</td>
-              <td>王醫師</td>
-              <td><span class="skh-badge skh-badge-danger">待建檔</span></td>
-            </tr>
-            <tr>
-              <td><button class="skh-btn skh-btn-warning skh-btn-sm">檢查</button></td>
-              <td><span class="skh-badge skh-badge-warning">長文字</span></td>
-              <td>Hydroclean cavity 20x30 Ag Silver Extra Long Dressing Name Test 超長敷料名稱測試</td>
-              <td>12</td>
-              <td>自費</td>
-              <td>非常長的醫師名稱測試</td>
-              <td><span class="skh-badge skh-badge-info">文字壓力測試</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+<section class="testSection">
+  <h2>05 UiLoading / 載入</h2>
+  <p class="testNote">第一列測最原始 spinner。</p>
 
-
-
-    <section class="skh-card">
-      <h2 class="skh-section-title">6-1. Empty Table / 長按鈕測試</h2>
-
-      <div class="skh-row" style="margin-bottom:12px">
-        <button class="skh-btn skh-btn-primary">
-          批次儲存所有尚未完成之敷料資料
-        </button>
-        <button class="skh-btn skh-btn-secondary">
-          這是一個故意很長的返回上一個病人資料區按鈕
-        </button>
-      </div>
-
-      <div class="skh-table-wrap">
-        <div class="skh-table-empty">
-          尚無資料。測試空表格狀態、邊框、置中與手機版顯示。
-        </div>
-      </div>
-    </section>
-
-
-    <section class="skh-card">
-      <h2 class="skh-section-title">7. 真實場景：敷料領用 / 建檔測試</h2>
-      <p style="color:var(--skh-muted);margin-top:0">
-        這區專門測試元件放進實際敷料系統時會不會跑版，尤其是 table 內按鈕、radio、批次儲存列。
-      </p>
-
-      <div class="skh-card" style="box-shadow:none;margin-bottom:12px">
-        <div class="skh-toolbar">
-          <div>
-            <h3 class="skh-section-title" style="font-size:16px;margin-bottom:4px">病人領用區</h3>
-            <p style="color:var(--skh-muted);margin:0;font-size:13px">測試病歷號、領用人、掃描、批次儲存放在同一區塊的感覺。</p>
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>最原始 spinner，表示背景處理中</td>
+        <td><code>.skh-spinner</code></td>
+        <td><div class="skh-spinner"></div></td>
+      </tr>
+      <tr>
+        <td>載入框，讀取資料、等待 Apps Script 回傳</td>
+        <td><code>.skh-loading-box</code><br><code>.skh-spinner</code></td>
+        <td>
+          <div class="skh-loading-box">
+            <div class="skh-spinner"></div>
+            <strong>資料讀取中...</strong>
           </div>
-          <div class="skh-row">
-            <button class="skh-btn skh-btn-camera skh-btn-sm">📷 掃描敷料</button>
-            <button class="skh-btn skh-btn-success skh-btn-sm">＋新增敷料列</button>
-            <button class="skh-btn skh-btn-primary skh-btn-sm"><span class="skh-spinner"></span>批次儲存中</button>
-          </div>
-        </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
-        <div class="skh-grid">
-          <div class="skh-field">
-            <label class="skh-label">病歷號</label>
-            <input class="skh-input" value="12345678">
-          </div>
-          <div class="skh-field">
-            <label class="skh-label">領用人</label>
-            <input class="skh-input" value="石益昇">
-          </div>
-          <div class="skh-field">
-            <label class="skh-label">領用單位</label>
-            <select class="skh-select">
-              <option>整形外科</option>
-              <option>傷口中心</option>
-            </select>
-          </div>
-          <div class="skh-field">
-            <label class="skh-label">狀態</label>
-            <div class="skh-row">
-              <span class="skh-badge skh-badge-warning">尚有未儲存變更</span>
+<section class="testSection">
+  <h2>06 UiModal / 對話框</h2>
+  <p class="testNote">第一列測最原始 modal 結構。</p>
+
+  <table class="testTable">
+    <tbody>
+      <tr>
+        <td>最原始對話框外層 + 內容框</td>
+        <td><code>.skh-modal-overlay</code><br><code>.skh-modal</code></td>
+        <td>
+          <div class="skh-modal-overlay">
+            <div class="skh-modal">
+              <h3 class="skh-modal-title">是否刪除此筆資料？</h3>
+              <p class="skh-modal-message">刪除後無法復原。</p>
+              <div class="skh-modal-actions">
+                <button class="skh-btn skh-btn-secondary">取消</button>
+                <button class="skh-btn skh-btn-danger">確認刪除</button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
-      <div class="skh-table-wrap">
-        <table class="skh-table">
-          <thead>
-            <tr>
-              <th>操作</th>
-              <th>計價狀態</th>
-              <th>敷料名稱</th>
-              <th>數量</th>
-              <th>支付類別</th>
-              <th>主治醫師</th>
-              <th>掃描/狀態</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><button class="skh-btn skh-btn-danger skh-btn-sm">刪除</button></td>
-              <td>
-                <label class="skh-radio"><input type="radio" name="chargeReal1" checked> 未</label>
-                <label class="skh-radio"><input type="radio" name="chargeReal1"> 已</label>
-              </td>
-              <td><input class="skh-input" value="Aquacel Ag+ 15*15"></td>
-              <td><input class="skh-input" value="1" style="max-width:72px"></td>
-              <td>
-                <label class="skh-radio"><input type="radio" name="payReal1" checked> 健保</label>
-                <label class="skh-radio"><input type="radio" name="payReal1"> 自費</label>
-              </td>
-              <td><input class="skh-input" value="林醫師"></td>
-              <td><span class="skh-badge skh-badge-success">已辨識</span></td>
-            </tr>
-            <tr>
-              <td><button class="skh-btn skh-btn-danger skh-btn-sm" disabled>刪除</button></td>
-              <td>
-                <label class="skh-radio"><input type="radio" name="chargeReal2" checked> 未</label>
-                <label class="skh-radio"><input type="radio" name="chargeReal2"> 已</label>
-              </td>
-              <td><input class="skh-input" value="未知條碼"></td>
-              <td><input class="skh-input" value="1" style="max-width:72px"></td>
-              <td>
-                <label class="skh-radio"><input type="radio" name="payReal2" checked> 健保</label>
-                <label class="skh-radio"><input type="radio" name="payReal2"> 自費</label>
-              </td>
-              <td><input class="skh-input" value=""></td>
-              <td><button class="skh-btn skh-btn-camera skh-btn-sm">補掃描</button></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+</main>
 
-      <div class="skh-alert skh-alert-warning">
-        真實測試重點：按鈕在 table 裡不要太高、radio 不要擠爆、手機版要能橫向捲動。
-      </div>
-    </section>
-
-
-    <section class="skh-card">
-      <h2 class="skh-section-title">8. Modal / Toast / Loading Overlay 測試</h2>
-      <p style="color:var(--skh-muted);margin-top:0">
-        測試 modal 結構、toast 位置、loading overlay z-index，以及手機版長標題狀態。
-      </p>
-
-      <div class="skh-alert skh-alert-warning">
-        <span class="skh-alert-title">手機版 Header 壓力測試</span>
-        <span class="skh-alert-body">
-          SKH Dressing Inventory Management System Test：這是一段故意很長的標題與副標題，用來測試手機版是否會把 header 撐爆。
-        </span>
-      </div>
-
-      <div class="skh-row">
-        <button class="skh-btn skh-btn-primary" onclick="openModal()">開啟 Modal</button>
-        <button class="skh-btn skh-btn-success" onclick="showToast()">顯示 Toast</button>
-        <button class="skh-btn skh-btn-warning" onclick="showLoadingOverlay()">顯示 Loading Overlay</button>
-      </div>
-    </section>
-
-  </main>
-
-  <div id="testModal" class="skh-modal-mask">
-    <div class="skh-modal skh-modal-danger">
-
-      <div class="skh-modal-header">
-        <div class="skh-modal-header-row">
-          <div>
-            <h3 class="skh-modal-title">確認刪除</h3>
-            <p class="skh-modal-subtitle">此操作只會測試畫面，不會寫入後端。</p>
-          </div>
-          <button class="skh-modal-close" onclick="closeModal()">×</button>
-        </div>
-      </div>
-
-      <div class="skh-modal-body">
-        確定要刪除這筆敷料列嗎？這裡用來測試標準 modal header / body / footer 結構。
-      </div>
-
-      <div class="skh-modal-footer">
-        <button class="skh-btn skh-btn-secondary" onclick="closeModal()">取消</button>
-        <button class="skh-btn skh-btn-danger" onclick="closeModal()">確認刪除</button>
-      </div>
-
-    </div>
-  </div>
-
-
-  <div id="loadingOverlay" class="skh-loading-overlay">
-    <div class="skh-loading-card">
-      <span class="skh-spinner skh-spinner-dark"></span>
-      <span>儲存中...</span>
-    </div>
-  </div>
-
-  <div id="toast" class="skh-overlay">
-    <span class="skh-spinner"></span>
-    <span>測試訊息：AJAX 執行中...</span>
-  </div>
-
-  <script>
-    function openModal(){
-      document.getElementById('testModal').classList.add('is-open');
-    }
-
-    function closeModal(){
-      document.getElementById('testModal').classList.remove('is-open');
-    }
-
-    function showToast(){
-      const toast = document.getElementById('toast');
-      toast.classList.add('is-show');
-      setTimeout(() => toast.classList.remove('is-show'), 1800);
-    }
-
-    function showLoadingOverlay(){
-      const overlay = document.getElementById('loadingOverlay');
-      overlay.classList.add('is-show');
-      setTimeout(() => overlay.classList.remove('is-show'), 1400);
-    }
-
-    document.getElementById('testModal').addEventListener('click', function(e){
-      if(e.target === this) closeModal();
-    });
-  </script>
 </body>
 </html>
