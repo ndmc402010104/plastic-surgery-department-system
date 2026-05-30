@@ -1,0 +1,203 @@
+<style>
+
+/* =====================================
+   SKH Design System v1
+   00_基礎 / UiStyle
+===================================== */
+
+:root{
+
+  /* 主色 */
+
+  --skh-primary:#2563eb;
+  --skh-primary-dark:#1d4ed8;
+
+  --skh-success:#16a34a;
+  --skh-warning:#f59e0b;
+  --skh-danger:#dc2626;
+
+  /* 背景 */
+
+  --skh-bg:#f8fafc;
+  --skh-card:#ffffff;
+
+  /* 文字 */
+
+  --skh-text:#0f172a;
+  --skh-muted:#64748b;
+
+  /* 邊框 */
+
+  --skh-border:#e2e8f0;
+
+  /* 設計 Token */
+
+  --skh-radius:12px;
+
+  --skh-shadow:
+    0 2px 8px rgba(15,23,42,.06);
+
+  --skh-shadow-hover:
+    0 6px 18px rgba(15,23,42,.10);
+
+  --skh-transition:.15s ease;
+
+}
+
+
+
+/* =====================================
+   全站
+===================================== */
+
+body{
+
+  margin:0;
+
+  background:
+    var(--skh-bg);
+
+  color:
+    var(--skh-text);
+
+  font-family:
+    "Segoe UI",
+    "Noto Sans TC",
+    sans-serif;
+
+  font-size:14px;
+
+  line-height:1.5;
+
+}
+
+
+
+/* =====================================
+   Page
+===================================== */
+
+.skh-page{
+
+  max-width:1200px;
+
+  margin:0 auto;
+
+  padding:20px;
+
+}
+
+
+
+/* =====================================
+   Card
+===================================== */
+
+.skh-card{
+
+  background:
+    var(--skh-card);
+
+  border:
+    1px solid var(--skh-border);
+
+  border-radius:
+    var(--skh-radius);
+
+  box-shadow:
+    var(--skh-shadow);
+
+  padding:16px;
+
+  margin-bottom:16px;
+
+}
+
+
+
+/* =====================================
+   Flex Row
+===================================== */
+
+.skh-row{
+
+  display:flex;
+
+  gap:12px;
+
+  align-items:center;
+
+  flex-wrap:wrap;
+
+}
+
+
+
+/* =====================================
+   Grid
+===================================== */
+
+.skh-grid{
+
+  display:grid;
+
+  gap:16px;
+
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(240px,1fr)
+    );
+
+}
+
+
+
+/* =====================================
+   標題
+===================================== */
+
+.skh-title{
+
+  margin:0;
+
+  font-size:24px;
+
+  font-weight:700;
+
+}
+
+
+
+.skh-subtitle{
+
+  margin-top:4px;
+
+  color:
+    var(--skh-muted);
+
+}
+
+
+
+/* =====================================
+   手機版
+===================================== */
+
+@media(max-width:768px){
+
+  .skh-page{
+
+    padding:12px;
+
+  }
+
+  .skh-card{
+
+    padding:12px;
+
+  }
+
+}
+
+</style>
