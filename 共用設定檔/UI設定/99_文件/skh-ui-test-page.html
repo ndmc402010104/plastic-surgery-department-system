@@ -69,6 +69,7 @@ body{
   padding:24px;
   box-shadow:var(--skh-shadow,0 1px 3px rgba(0,0,0,.1));
   overflow:hidden;
+  position:relative;
 }
 
 .testContent > div{
@@ -250,26 +251,6 @@ body{
 }
 
 
-/*
-  防二次載入：
-  新頁面先放進 DOM 但保持不可見，讓 script/theme 可以先跑完。
-  等 callback + DOM 變動穩定後，再一次移除 loading 並顯示內容。
-*/
-.ui-test-stage.is-preparing{
-  visibility:hidden;
-  opacity:0;
-  pointer-events:none;
-}
-
-.ui-test-stage.is-ready{
-  visibility:visible;
-  opacity:1;
-  pointer-events:auto;
-  transition:opacity .12s ease;
-}
-
-
-
 .ui-loading-box{
   padding:40px;
   text-align:center;
@@ -388,6 +369,16 @@ body{
   var activeRequestId = 0;
   var isLoadingPage = false;
 
+  /*
+    二次載入處理原則：
+    1. getUiTestPageContent 回來後，不直接顯示。
+    2. 先放進不可見但有 layout 的 preload wrapper。
+       不用 display:none，避免頁面內 script 量不到寬度。
+    3. 執行插入頁面的 script。
+    4. 先跑全域 theme loader，再跑單頁 theme loader。
+    5. 等 DOM mutation 安靜一段時間、字型 ready、兩個 animation frame 後，才一次 reveal。
+  */
+
   window.getCurrentUiTestState = function(){
     return {
       activeRequestId:activeRequestId,
@@ -399,13 +390,14 @@ body{
     };
   };
 
-  function wrapTables(container){
+  window.notifyUiTestReady = function(){
+    window.dispatchEvent(new CustomEvent('skh-ui-test-ready'));
+  };
 
-    var tables =
-      container.querySelectorAll('table.testTable');
+  function wrapTables(container){
+    var tables = container.querySelectorAll('table.testTable');
 
     tables.forEach(function(table){
-
       if(
         table.parentElement &&
         table.parentElement.classList.contains('testTableScroll')
@@ -413,23 +405,12 @@ body{
         return;
       }
 
-      var wrap =
-        document.createElement('div');
+      var wrap = document.createElement('div');
+      wrap.className = 'testTableScroll';
 
-      wrap.className =
-        'testTableScroll';
-
-      table.parentNode.insertBefore(
-        wrap,
-        table
-      );
-
-      wrap.appendChild(
-        table
-      );
-
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
     });
-
   }
 
   function runInsertedScripts(container){
@@ -443,7 +424,6 @@ body{
       });
 
       newScript.textContent = oldScript.textContent;
-
       oldScript.parentNode.replaceChild(newScript, oldScript);
     });
   }
@@ -461,12 +441,9 @@ body{
   }
 
   function setSidebarLocked(locked){
+    isLoadingPage = !!locked;
 
-    isLoadingPage =
-      !!locked;
-
-    var buttons =
-      sidebar.querySelectorAll('.testNavButton');
+    var buttons = sidebar.querySelectorAll('.testNavButton');
 
     buttons.forEach(function(btn){
       btn.disabled = !!locked;
@@ -478,36 +455,26 @@ body{
     else{
       content.classList.remove('is-loading');
     }
-
   }
 
   function forceUnlockIfStuck(requestId){
-
     setTimeout(function(){
-
       if(
         isLoadingPage &&
         requestId === activeRequestId
       ){
-
         setSidebarLocked(false);
 
-        var loadingEl =
-          content.querySelector('[data-ui-loading]');
-
+        var loadingEl = content.querySelector('[data-ui-loading]');
         if(loadingEl){
           loadingEl.querySelector('div:last-child').textContent =
             '讀取較久，已解除選單鎖定；可重新選擇頁面。';
         }
-
       }
-
-    },3000);
-
+    },5000);
   }
 
   function showLoading(message){
-
     content.innerHTML =
       '<div class="ui-loading-box" data-ui-loading="1">' +
         '<div class="skh-spinner"></div>' +
@@ -515,7 +482,13 @@ body{
           message +
         '</div>' +
       '</div>';
+  }
 
+  function updateLoading(message){
+    var loadingEl = content.querySelector('[data-ui-loading]');
+    if(loadingEl){
+      loadingEl.querySelector('div:last-child').textContent = message;
+    }
   }
 
   function showError(error){
@@ -525,328 +498,294 @@ body{
       '</div>';
   }
 
-  function revealWhenThemeReady(pageObj, wrapper, loadingEl, requestId){
+  function makePreloadWrapper(html){
+    var wrapper = document.createElement('div');
 
-    var revealed = false;
-    var visualIdleTimer = null;
-    var visualIdleObserver = null;
-    var visualIdleHardTimer = null;
+    wrapper.setAttribute('data-ui-preload-wrapper','1');
+    wrapper.style.visibility = 'hidden';
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '24px';
+    wrapper.style.right = '24px';
+    wrapper.style.top = '24px';
+    wrapper.style.width = 'calc(100% - 48px)';
+    wrapper.style.minHeight = '1px';
 
-    function cleanupVisualWait(){
-      if(visualIdleTimer){
-        clearTimeout(visualIdleTimer);
-        visualIdleTimer = null;
-      }
+    wrapper.innerHTML = html;
 
-      if(visualIdleHardTimer){
-        clearTimeout(visualIdleHardTimer);
-        visualIdleHardTimer = null;
-      }
+    return wrapper;
+  }
 
-      if(visualIdleObserver){
-        visualIdleObserver.disconnect();
-        visualIdleObserver = null;
-      }
+  function revealPreloadedWrapper(wrapper, requestId){
+    if(requestId !== activeRequestId){
+      return;
     }
 
-    function revealNow(){
-
-      if(revealed){
-        return;
-      }
-
-      if(requestId !== activeRequestId){
-        cleanupVisualWait();
-        return;
-      }
-
-      revealed = true;
-      cleanupVisualWait();
-
-      wrapper.classList.remove('is-preparing');
-      wrapper.classList.add('is-ready');
-
-      if(
-        loadingEl &&
-        loadingEl.parentNode
-      ){
-        loadingEl.parentNode.removeChild(
-          loadingEl
-        );
-      }
-
-      setSidebarLocked(false);
-
+    var loadingEl = content.querySelector('[data-ui-loading]');
+    if(loadingEl && loadingEl.parentNode){
+      loadingEl.parentNode.removeChild(loadingEl);
     }
 
-    function revealAfterPaint(){
-      requestAnimationFrame(function(){
-        requestAnimationFrame(function(){
-          revealNow();
-        });
+    wrapper.style.visibility = '';
+    wrapper.style.pointerEvents = '';
+    wrapper.style.position = '';
+    wrapper.style.left = '';
+    wrapper.style.right = '';
+    wrapper.style.top = '';
+    wrapper.style.width = '';
+    wrapper.style.minHeight = '';
+
+    setSidebarLocked(false);
+  }
+
+  function waitAnimationFrames(count, done){
+    if(count <= 0){
+      done();
+      return;
+    }
+
+    requestAnimationFrame(function(){
+      waitAnimationFrames(count - 1, done);
+    });
+  }
+
+  function waitFontsReady(done){
+    if(
+      document.fonts &&
+      typeof document.fonts.ready === 'object' &&
+      typeof document.fonts.ready.then === 'function'
+    ){
+      document.fonts.ready.then(function(){
+        done();
+      }).catch(function(){
+        done();
+      });
+      return;
+    }
+
+    done();
+  }
+
+  function waitDomQuiet(container, options, done){
+    var minWait = options.minWait || 450;
+    var quietWait = options.quietWait || 260;
+    var maxWait = options.maxWait || 2800;
+
+    var start = Date.now();
+    var lastChange = Date.now();
+    var stopped = false;
+
+    var observer = new MutationObserver(function(){
+      lastChange = Date.now();
+    });
+
+    try{
+      observer.observe(container, {
+        childList:true,
+        subtree:true,
+        attributes:true,
+        characterData:true
       });
     }
+    catch(err){}
 
-    function waitForVisualIdle(){
-      /*
-        關鍵：theme/builder 常常 callback 先回來，DOM style 或色塊再補一輪。
-        所以不是 callback 後立刻顯示，而是等 DOM 120ms 沒變動再顯示。
-        但最多等 2200ms，避免真的卡住。
-      */
-      if(requestId !== activeRequestId){
-        cleanupVisualWait();
+    function finish(){
+      if(stopped){
         return;
       }
-
-      function scheduleReveal(){
-        if(visualIdleTimer){
-          clearTimeout(visualIdleTimer);
-        }
-
-        visualIdleTimer = setTimeout(function(){
-          revealAfterPaint();
-        },120);
-      }
-
-      try{
-        visualIdleObserver = new MutationObserver(function(){
-          scheduleReveal();
-        });
-
-        visualIdleObserver.observe(wrapper,{
-          childList:true,
-          subtree:true,
-          attributes:true,
-          attributeFilter:['class','style','disabled','checked','value']
-        });
-      }
-      catch(err){
-        revealAfterPaint();
-        return;
-      }
-
-      visualIdleHardTimer = setTimeout(function(){
-        revealAfterPaint();
-      },2200);
-
-      scheduleReveal();
+      stopped = true;
+      try{ observer.disconnect(); }catch(err){}
+      done();
     }
 
-    function safeThemeLoad(loader){
+    function check(){
+      var now = Date.now();
+      var passedMin = now - start >= minWait;
+      var quiet = now - lastChange >= quietWait;
+      var timeout = now - start >= maxWait;
 
-      var doneCalled = false;
+      if(
+        (passedMin && quiet) ||
+        timeout
+      ){
+        finish();
+        return;
+      }
+
+      setTimeout(check,80);
+    }
+
+    check();
+  }
+
+  function runCallbackStyleLoader(loader, timeoutMs){
+    return new Promise(function(resolve){
+      var resolved = false;
+      var timeoutId = setTimeout(done, timeoutMs || 1800);
 
       function done(){
-        if(doneCalled){
+        if(resolved){
           return;
         }
-
-        doneCalled = true;
+        resolved = true;
         clearTimeout(timeoutId);
-        waitForVisualIdle();
+        resolve();
       }
 
-      var timeoutId = setTimeout(function(){
-        done();
-      },1800);
-
       try{
-        loader(done);
+        var maybePromise = loader(done);
+        if(
+          maybePromise &&
+          typeof maybePromise.then === 'function'
+        ){
+          maybePromise.then(done).catch(done);
+        }
       }
       catch(err){
         done();
       }
+    });
+  }
 
-    }
+  function getPageThemeLoaders(pageObj){
+    var loaders = [];
 
-    function getThemeLoader(){
-
-      if(
-        pageObj.id === 'UiStyleTest'
-      ){
-
-        if(
-          typeof window.loadUiStyleTheme === 'function'
-        ){
-          return window.loadUiStyleTheme;
-        }
-
-        if(
-          typeof window.loadBaseTheme === 'function'
-        ){
-          return window.loadBaseTheme;
-        }
-
+    if(
+      pageObj.id === 'UiStyleTest'
+    ){
+      if(typeof window.loadUiStyleTheme === 'function'){
+        loaders.push(window.loadUiStyleTheme);
       }
-
-      if(
-        pageObj.id === 'UiButtonTest' &&
-        typeof window.loadButtonTheme === 'function'
-      ){
-        return window.loadButtonTheme;
+      else if(typeof window.loadBaseTheme === 'function'){
+        loaders.push(window.loadBaseTheme);
       }
-
-      return null;
-
-    }
-
-    function runPageThemeLoader(){
-
-      var loader = getThemeLoader();
-
-      if(loader){
-        safeThemeLoad(loader);
-        return;
-      }
-
-      waitForVisualIdle();
-
     }
 
     if(
-      typeof window.loadUiTheme === 'function'
+      pageObj.id === 'UiButtonTest' &&
+      typeof window.loadButtonTheme === 'function'
     ){
+      loaders.push(window.loadButtonTheme);
+    }
 
-      var globalDoneCalled = false;
-      var globalTimeoutId = null;
+    return loaders;
+  }
 
-      function globalDone(){
-        if(globalDoneCalled){
+  function waitThemeAndPageSettled(pageObj, wrapper, requestId, done){
+    var customReadyResolved = false;
+
+    function onCustomReady(){
+      customReadyResolved = true;
+    }
+
+    window.addEventListener('skh-ui-test-ready', onCustomReady, {once:true});
+    window.addEventListener('ui-theme-ready', onCustomReady, {once:true});
+    window.addEventListener('skh-theme-ready', onCustomReady, {once:true});
+
+    Promise.resolve()
+      .then(function(){
+        if(typeof window.loadUiTheme === 'function'){
+          updateLoading('套用全域樣式設定中...');
+          return runCallbackStyleLoader(window.loadUiTheme,2200);
+        }
+      })
+      .then(function(){
+        var loaders = getPageThemeLoaders(pageObj);
+        var chain = Promise.resolve();
+
+        loaders.forEach(function(loader){
+          chain = chain.then(function(){
+            updateLoading('套用單頁樣式設定中...');
+            return runCallbackStyleLoader(loader,2200);
+          });
+        });
+
+        return chain;
+      })
+      .then(function(){
+        if(requestId !== activeRequestId){
           return;
         }
 
-        globalDoneCalled = true;
+        updateLoading('等待畫面刷新完成...');
 
-        if(globalTimeoutId){
-          clearTimeout(globalTimeoutId);
-        }
+        waitDomQuiet(
+          wrapper,
+          {
+            minWait:650,
+            quietWait:320,
+            maxWait:3200
+          },
+          function(){
+            waitFontsReady(function(){
+              waitAnimationFrames(2,function(){
+                window.removeEventListener('skh-ui-test-ready', onCustomReady);
+                window.removeEventListener('ui-theme-ready', onCustomReady);
+                window.removeEventListener('skh-theme-ready', onCustomReady);
 
-        runPageThemeLoader();
-      }
+                if(customReadyResolved){
+                  waitAnimationFrames(1,done);
+                  return;
+                }
 
-      globalTimeoutId = setTimeout(function(){
-        globalDone();
-      },1200);
-
-      try{
-        window.loadUiTheme(globalDone);
-      }
-      catch(err){
-        globalDone();
-      }
-
-      return;
-
-    }
-
-    runPageThemeLoader();
-
+                done();
+              });
+            });
+          }
+        );
+      })
+      .catch(function(){
+        done();
+      });
   }
-  
-  function loadPage(pageObj, btn){
 
+  function loadPage(pageObj, btn){
     if(isLoadingPage){
       return;
     }
 
     activeRequestId += 1;
 
-    var requestId =
-      activeRequestId;
+    var requestId = activeRequestId;
 
     setSidebarLocked(true);
-
-    forceUnlockIfStuck(
-      requestId
-    );
-
+    forceUnlockIfStuck(requestId);
     activateButton(btn);
 
-    var startTime =
-      Date.now();
-
-    content.innerHTML = '';
-
-    showLoading(
-      '載入中：' +
-      pageObj.name +
-      '...'
-    );
+    showLoading('載入中：' + pageObj.name + '...');
 
     google.script.run
       .withSuccessHandler(function(html){
-
         if(requestId !== activeRequestId){
           return;
         }
 
-        var loadingEl =
-          content.querySelector('[data-ui-loading]');
+        updateLoading('預載頁面內容中...');
 
-        if(loadingEl){
-          loadingEl.querySelector('div:last-child').textContent =
-            '讀取樣式設定中...';
-        }
+        var wrapper = makePreloadWrapper(html);
+        content.appendChild(wrapper);
 
-        var wrapper =
-          document.createElement('div');
+        wrapTables(wrapper);
+        runInsertedScripts(wrapper);
 
-        wrapper.className =
-          'ui-test-stage is-preparing';
-
-        wrapper.innerHTML =
-          html;
-
-        content.appendChild(
-          wrapper
+        waitThemeAndPageSettled(
+          pageObj,
+          wrapper,
+          requestId,
+          function(){
+            revealPreloadedWrapper(wrapper, requestId);
+          }
         );
-
-        wrapTables(
-          wrapper
-        );
-
-        runInsertedScripts(
-          wrapper
-        );
-
-        var elapsed =
-          Date.now() - startTime;
-
-        var wait =
-          Math.max(
-            0,
-            350 - elapsed
-          );
-
-        setTimeout(function(){
-
-          revealWhenThemeReady(
-            pageObj,
-            wrapper,
-            loadingEl,
-            requestId
-          );
-
-        },wait);
-
       })
       .withFailureHandler(function(error){
-
         if(requestId !== activeRequestId){
           return;
         }
 
         setSidebarLocked(false);
-
-        showError(
-          error
-        );
-
+        showError(error);
       })
-      .getUiTestPageContent(
-        pageObj.path
-      );
-
+      .getUiTestPageContent(pageObj.path);
   }
 
   function renderSidebar(){
@@ -863,7 +802,6 @@ body{
       };
 
       sidebar.appendChild(btn);
-
     });
   }
 
