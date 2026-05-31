@@ -376,7 +376,8 @@ body{
        不用 display:none，避免頁面內 script 量不到寬度。
     3. 執行插入頁面的 script。
     4. 先跑全域 theme loader，再跑單頁 theme loader。
-    5. 等 DOM mutation 安靜一段時間、字型 ready、兩個 animation frame 後，才一次 reveal。
+    5. 不由父層重跑 theme loader，避免二次把色塊重設成黑色。
+    6. 等 DOM mutation、字型、色塊值都穩定後，才一次 reveal。
   */
 
   window.getCurrentUiTestState = function(){
@@ -618,57 +619,81 @@ body{
     check();
   }
 
-  function runCallbackStyleLoader(loader, timeoutMs){
-    return new Promise(function(resolve){
-      var resolved = false;
-      var timeoutId = setTimeout(done, timeoutMs || 1800);
+  function hasMostlyBlackColorControls(wrapper){
+    var colorInputs = Array.prototype.slice.call(
+      wrapper.querySelectorAll('input[type="color"]')
+    );
 
-      function done(){
-        if(resolved){
-          return;
-        }
-        resolved = true;
-        clearTimeout(timeoutId);
-        resolve();
-      }
+    if(colorInputs.length < 2){
+      return false;
+    }
 
-      try{
-        var maybePromise = loader(done);
-        if(
-          maybePromise &&
-          typeof maybePromise.then === 'function'
-        ){
-          maybePromise.then(done).catch(done);
-        }
+    var blackCount = 0;
+    var nonBlackCount = 0;
+
+    colorInputs.forEach(function(input){
+      var value = String(input.value || '').toLowerCase();
+
+      if(
+        value === '#000000' ||
+        value === '#000' ||
+        value === ''
+      ){
+        blackCount += 1;
       }
-      catch(err){
-        done();
+      else{
+        nonBlackCount += 1;
       }
     });
+
+    /*
+      UiStyleTest 的色塊如果全部或幾乎全部是 #000000，通常不是設計稿顏色，
+      而是 input[type=color] 的瀏覽器預設值尚未被 theme 資料覆蓋。
+    */
+    return (
+      blackCount >= 2 &&
+      nonBlackCount === 0
+    );
   }
 
-  function getPageThemeLoaders(pageObj){
-    var loaders = [];
+  function waitVisualReady(pageObj, wrapper, done){
+    var start = Date.now();
+    var minWait = 900;
+    var maxWait = 9000;
+    var stablePass = 0;
 
-    if(
-      pageObj.id === 'UiStyleTest'
-    ){
-      if(typeof window.loadUiStyleTheme === 'function'){
-        loaders.push(window.loadUiStyleTheme);
+    function isReady(){
+      if(pageObj.id === 'UiStyleTest'){
+        if(hasMostlyBlackColorControls(wrapper)){
+          return false;
+        }
       }
-      else if(typeof window.loadBaseTheme === 'function'){
-        loaders.push(window.loadBaseTheme);
-      }
+
+      return true;
     }
 
-    if(
-      pageObj.id === 'UiButtonTest' &&
-      typeof window.loadButtonTheme === 'function'
-    ){
-      loaders.push(window.loadButtonTheme);
+    function poll(){
+      var elapsed = Date.now() - start;
+
+      if(isReady()){
+        stablePass += 1;
+      }
+      else{
+        stablePass = 0;
+      }
+
+      if(
+        (elapsed >= minWait && stablePass >= 4) ||
+        elapsed >= maxWait
+      ){
+        done();
+        return;
+      }
+
+      setTimeout(poll,120);
     }
 
-    return loaders;
+    poll();
   }
 
   function waitThemeAndPageSettled(pageObj, wrapper, requestId, done){
@@ -682,61 +707,50 @@ body{
     window.addEventListener('ui-theme-ready', onCustomReady, {once:true});
     window.addEventListener('skh-theme-ready', onCustomReady, {once:true});
 
-    Promise.resolve()
-      .then(function(){
-        if(typeof window.loadUiTheme === 'function'){
-          updateLoading('套用全域樣式設定中...');
-          return runCallbackStyleLoader(window.loadUiTheme,2200);
-        }
-      })
-      .then(function(){
-        var loaders = getPageThemeLoaders(pageObj);
-        var chain = Promise.resolve();
+    /*
+      重要：這裡不再由父層主動呼叫 window.loadUiStyleTheme / loadBaseTheme / loadButtonTheme。
+      原因是插入的測試頁 script 通常已經會自己載入 theme。
+      父層再呼叫一次，會造成：先套瀏覽器預設黑色 → 再被 theme 改色，
+      使用者看到的就是「黑黑的才改顏色」。
 
-        loaders.forEach(function(loader){
-          chain = chain.then(function(){
-            updateLoading('套用單頁樣式設定中...');
-            return runCallbackStyleLoader(loader,2200);
+      父層現在只負責：
+      1. 先把頁面放在不可見 preload wrapper。
+      2. 執行頁面 script 一次。
+      3. 等 DOM / 字型 / 顏色控制項穩定。
+      4. 最後一次 reveal。
+    */
+    if(requestId !== activeRequestId){
+      return;
+    }
+
+    updateLoading('等待頁面樣式完成...');
+
+    waitDomQuiet(
+      wrapper,
+      {
+        minWait:900,
+        quietWait:420,
+        maxWait:5000
+      },
+      function(){
+        waitVisualReady(pageObj, wrapper, function(){
+          waitFontsReady(function(){
+            waitAnimationFrames(3,function(){
+              window.removeEventListener('skh-ui-test-ready', onCustomReady);
+              window.removeEventListener('ui-theme-ready', onCustomReady);
+              window.removeEventListener('skh-theme-ready', onCustomReady);
+
+              if(customReadyResolved){
+                waitAnimationFrames(2,done);
+                return;
+              }
+
+              done();
+            });
           });
         });
-
-        return chain;
-      })
-      .then(function(){
-        if(requestId !== activeRequestId){
-          return;
-        }
-
-        updateLoading('等待畫面刷新完成...');
-
-        waitDomQuiet(
-          wrapper,
-          {
-            minWait:650,
-            quietWait:320,
-            maxWait:3200
-          },
-          function(){
-            waitFontsReady(function(){
-              waitAnimationFrames(2,function(){
-                window.removeEventListener('skh-ui-test-ready', onCustomReady);
-                window.removeEventListener('ui-theme-ready', onCustomReady);
-                window.removeEventListener('skh-theme-ready', onCustomReady);
-
-                if(customReadyResolved){
-                  waitAnimationFrames(1,done);
-                  return;
-                }
-
-                done();
-              });
-            });
-          }
-        );
-      })
-      .catch(function(){
-        done();
-      });
+      }
+    );
   }
 
   function loadPage(pageObj, btn){
