@@ -119,6 +119,12 @@ function doGet(e){
     return showAdminMeetingPage();
   }
 
+  //CSS模組化分支多出來的按鈕
+  if (page === 'uitest') {
+    return HtmlService.createTemplateFromFile('共用設定檔/UI設定/99_文件/skh-ui-test-page')
+      .evaluate()
+      .setTitle('SKH UI 測試中心');
+  }
 
   /*
   ========================================
@@ -128,6 +134,14 @@ function doGet(e){
 
   return showFrontIndex();
 
+}
+
+function getUiTestPageContent(pageName) {
+  try {
+    return HtmlService.createTemplateFromFile(pageName).evaluate().getContent();
+  } catch (e) {
+    return '<h3>找不到測試頁面：</h3><p></p>';
+  }
 }
 
 function doPost(e){

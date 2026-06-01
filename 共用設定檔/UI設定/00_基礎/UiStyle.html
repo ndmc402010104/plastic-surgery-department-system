@@ -1,0 +1,150 @@
+<style>
+/* =====================================
+   SKH Design System v1
+   00_基礎樣式 / UiStyle
+   Variable-driven foundation
+===================================== */
+
+:root{
+
+  /* Brand */
+  --skh-primary:#344f9f;
+  --skh-primary-soft:#eef3ff;
+  --skh-danger:#b42318;
+  --skh-success:#15803d;
+  --skh-warning:#b45309;
+
+  /* Page */
+  --skh-page-bg:#f4f7fb;
+  --skh-page-text:#0f172a;
+  --skh-page-muted:#64748b;
+
+  /* Surface */
+  --skh-surface-bg:#ffffff;
+  --skh-surface-border:#cbd5e1;
+  --skh-surface-shadow:0 8px 24px rgba(15,23,42,.06);
+
+  /* Radius */
+  --skh-radius:10px;
+  --skh-radius-sm:6px;
+  --skh-radius-lg:16px;
+  --skh-radius-pill:999px;
+
+  /* Spacing */
+  --skh-space-xs:4px;
+  --skh-space-sm:8px;
+  --skh-space-md:12px;
+  --skh-space-lg:16px;
+  --skh-space-xl:24px;
+
+  /* Font */
+  --skh-font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --skh-font-size:14px;
+  --skh-font-size-sm:13px;
+  --skh-font-size-lg:16px;
+  --skh-font-weight:500;
+  --skh-font-weight-bold:700;
+  --skh-line-height:1.6;
+
+  /* Motion */
+  --skh-transition-duration:.18s;
+  --skh-transition-easing:ease;
+  --skh-transition:var(--skh-transition-duration) var(--skh-transition-easing);
+
+  /* Layout */
+  --skh-container-max-width:1200px;
+  --skh-container-padding:24px;
+  --skh-section-gap:24px;
+
+}
+
+/* Page */
+
+body{
+  margin:0;
+  background:var(--skh-page-bg);
+  color:var(--skh-page-text);
+  font-family:var(--skh-font-family);
+  font-size:var(--skh-font-size);
+  font-weight:var(--skh-font-weight);
+  line-height:var(--skh-line-height);
+}
+
+/* Basic text */
+
+.skh-muted{
+  color:var(--skh-page-muted);
+}
+
+.skh-text-primary{
+  color:var(--skh-primary);
+}
+
+.skh-text-danger{
+  color:var(--skh-danger);
+}
+
+.skh-text-success{
+  color:var(--skh-success);
+}
+
+.skh-text-warning{
+  color:var(--skh-warning);
+}
+
+/* Surface */
+
+.skh-surface{
+  background:var(--skh-surface-bg);
+  border:1px solid var(--skh-surface-border);
+  border-radius:var(--skh-radius);
+  box-shadow:var(--skh-surface-shadow);
+}
+
+/* Layout helpers */
+
+.skh-container{
+  width:min(100% - 32px,var(--skh-container-max-width));
+  margin:0 auto;
+  padding:var(--skh-container-padding) 0;
+}
+
+.skh-section{
+  margin-bottom:var(--skh-section-gap);
+}
+
+.skh-stack{
+  display:grid;
+  gap:var(--skh-space-md);
+}
+
+.skh-row{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:var(--skh-space-sm);
+}
+
+/* Code */
+
+.skh-code{
+  display:inline-block;
+  padding:2px 6px;
+  border-radius:var(--skh-radius-sm);
+  background:#eef2f7;
+  color:#0f172a;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:12px;
+}
+
+/* Mobile */
+
+@media(max-width:640px){
+
+  :root{
+    --skh-container-padding:16px;
+    --skh-section-gap:16px;
+  }
+
+}
+</style>

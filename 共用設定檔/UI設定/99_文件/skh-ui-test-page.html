@@ -1,0 +1,852 @@
+﻿<!DOCTYPE html>
+<!--
+檔案位置：共用設定檔/UI設定/99_文件/skh-ui-test-page.html
+時間戳記：2026-06-01 23:52
+用途：SKH Design System 測試入口；負責左側選單、動態載入各 UiTest 子頁、插入 HTML 後執行子頁 script。正式版無 Probe / Alert；支援子頁 ready event gating，避免 Sheet Theme 尚未套用前先顯示 fallback 顏色。
+
+依賴檔案：
+- 共用設定檔/UI設定/00_基礎/UiStyle
+- 共用設定檔/UI設定/01_按鈕/UiButton
+- 共用設定檔/UI設定/02_表單/UiForm
+- 共用設定檔/UI設定/03_表格/UiTable
+- 共用設定檔/UI設定/04_提示/UiAlert
+- 共用設定檔/UI設定/05_互動/UiLoading
+- 共用設定檔/UI設定/05_互動/UiModal
+
+子頁載入流程：
+1. 使用者點選左側選單。
+2. 本頁呼叫後端 getUiTestPageContent(page.path)。
+3. 後端回傳對應 UiTest HTML 字串。
+4. 本頁將 HTML 插入 #test-content。
+5. runInsertedScripts() 重新建立子頁 script，使子頁自己的初始化流程執行。
+
+2026-06-01 除錯紀錄：
+- 症狀：UiStyleTest 初次載入時 color input 顯示瀏覽器預設 #000000。
+- 誤判：一開始以為是父頁載入太快或 Sheet 回傳太慢。
+- 根因：UiStyleTest 子頁有定義 loadBaseTheme()，但初始 render 後沒有主動執行。
+- 第一階段修正位置：共用設定檔/UI設定/00_基礎/UiStyleTest.html 的 bootBaseEditor()。
+- 第二階段修正位置：本頁 loadPage() 支援 waitForReadyEvent；UiStyleTest / UiButtonTest 發出 skh-ui-test-ready 後才顯示。
+- 第三階段修正位置：載入期間 setNavDisabled(true) 鎖定左側所有測試頁按鈕，避免重複點擊造成 request 互相覆蓋。
+- 2026-06-01 18:55：UiButtonTest 也改用同一套 ready event gating，避免 Button Builder 先顯示 fallback 色，再跳成 Sheet 色。
+- 若再次出現黑色色票或預設色跳動，優先檢查子頁 boot*Editor() → load*Theme() → applyLoaded() → writeInputs() → dispatch*Ready() 流程。
+-->
+<html>
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>SKH CSS 測試頁</title>
+
+<script>
+function goHome(){
+  window.top.location.href = '<?= APP_ENTRY_URL ?>';
+}
+</script>
+
+<?!= include('共用設定檔/UI設定/00_基礎/UiStyle') ?>
+<?!= include('共用設定檔/UI設定/01_按鈕/UiButton') ?>
+<?!= include('共用設定檔/UI設定/02_表單/UiForm') ?>
+<?!= include('共用設定檔/UI設定/03_表格/UiTable') ?>
+<?!= include('共用設定檔/UI設定/04_提示/UiAlert') ?>
+<?!= include('共用設定檔/UI設定/05_互動/UiLoading') ?>
+<?!= include('共用設定檔/UI設定/05_互動/UiModal') ?>
+
+<style>
+body{
+  margin:0;
+  padding:108px 32px 76px;
+  background:var(--skh-bg,#f8fafc);
+  color:var(--skh-text,#334155);
+  font-family:Arial,"Noto Sans TC","Microsoft JhengHei",sans-serif;
+}
+
+.testPage{
+  width:100%;
+  max-width:1800px;
+  margin:0 auto;
+}
+
+.testHeader{
+  margin-bottom:28px;
+}
+
+.testHeaderTop{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.testHeader h1{
+  margin:0 0 8px;
+  font-size:34px;
+}
+
+.testHeader p{
+  margin:0;
+  color:var(--skh-muted,#64748b);
+}
+
+.testVersionStamp{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:34px;
+  padding:7px 11px;
+  border:1px solid rgba(37,99,235,.26);
+  border-radius:8px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:13px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.testVersionStamp span{
+  color:#475569;
+  font-weight:700;
+}
+
+.testLayout{
+  display:flex;
+  gap:24px;
+  align-items:flex-start;
+}
+
+.testSidebar{
+  width:220px;
+  flex-shrink:0;
+  background:white;
+  border:1px solid var(--skh-line,#cbd5e1);
+  border-radius:var(--skh-radius,8px);
+  padding:12px;
+  box-shadow:var(--skh-shadow,0 1px 3px rgba(0,0,0,.1));
+}
+
+.testContent{
+  flex:1;
+  min-width:0;
+  background:#fff;
+  border-radius:var(--skh-radius,8px);
+  min-height:600px;
+  padding:24px;
+  box-shadow:var(--skh-shadow,0 1px 3px rgba(0,0,0,.1));
+  overflow:hidden;
+  position:relative;
+}
+
+.testContent > div{
+  min-width:0;
+}
+
+.testSection{
+  background:white;
+  border:1px solid var(--skh-line,#cbd5e1);
+  border-radius:var(--skh-radius,8px);
+  padding:24px;
+  margin-bottom:22px;
+  box-shadow:var(--skh-shadow,0 1px 3px rgba(0,0,0,.1));
+  box-sizing:border-box;
+  max-width:100%;
+}
+
+.testSection h2{
+  margin:0 0 8px;
+  font-size:22px;
+}
+
+.testNote{
+  margin:0 0 18px;
+  color:var(--skh-muted,#64748b);
+  line-height:1.7;
+}
+
+.testSubhead{
+  margin:24px 0 10px;
+  font-size:16px;
+  font-weight:800;
+  color:#1e293b;
+}
+
+.testRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+
+/* Table 預設：大畫面維持壓縮式 table，不出現內部拉條 */
+.testTableScroll{
+  width:100%;
+  max-width:100%;
+}
+
+/* 大畫面：table 吃滿可用寬度，自動壓縮 */
+.testTable{
+  width:100%;
+  border-collapse:collapse;
+  margin:0;
+  table-layout:auto;
+}
+
+/*
+  中小視窗：
+  這裡用 1500px，不用 1200px。
+  因為左側 sidebar 會吃掉 220px + gap，
+  實際內容區會比視窗寬度小很多。
+*/
+@media(max-width:1500px){
+
+  .testTableScroll{
+    width:100%;
+    max-width:100%;
+    max-height:52vh;
+    overflow:auto;
+    border:1px solid var(--skh-line,#cbd5e1);
+    border-radius:12px;
+    background:white;
+    box-sizing:border-box;
+  }
+
+  .testTable{
+    width:max-content;
+    min-width:1120px;
+  }
+
+}
+
+/* 很小的高度：讓水平捲軸更容易出現在畫面內 */
+@media(max-height:720px){
+
+  .testTableScroll{
+    max-height:46vh;
+  }
+
+}
+
+.testTable th{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:#f8fafc;
+  text-align:left;
+  padding:12px;
+  border:1px solid var(--skh-line,#cbd5e1);
+  font-size:14px;
+  white-space:nowrap;
+}
+
+.testTable td{
+  padding:14px;
+  border:1px solid var(--skh-line,#cbd5e1);
+  vertical-align:top;
+  background:white;
+}
+
+.testTable code{
+  background:#eef2f7;
+  padding:3px 6px;
+  border-radius:6px;
+  font-size:13px;
+  display:inline-block;
+  margin:2px 0;
+}
+
+.testTable th:nth-child(1),
+.testTable td:nth-child(1){
+  min-width:180px;
+  max-width:220px;
+}
+
+.testTable th:nth-child(2),
+.testTable td:nth-child(2){
+  min-width:150px;
+}
+
+.testTable th:nth-child(3),
+.testTable td:nth-child(3){
+  min-width:280px;
+}
+
+.testTable th:nth-child(4),
+.testTable td:nth-child(4){
+  min-width:300px;
+}
+
+.testTable th:nth-child(5),
+.testTable td:nth-child(5){
+  min-width:360px;
+}
+
+.testNavButton{
+  display:block;
+  width:100%;
+  text-align:left;
+  padding:12px 16px;
+  margin-bottom:8px;
+  background:transparent;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  transition:all .2s;
+  font-size:15px;
+  color:var(--skh-text,#334155);
+}
+
+.testNavButton:hover{
+  background:#f1f5f9;
+  color:#2563eb;
+}
+
+.testNavButton.active{
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-weight:bold;
+}
+.testNavButton:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+  background:#f8fafc;
+}
+
+.testContent.is-loading{
+  pointer-events:none;
+}
+
+
+.ui-loading-box{
+  min-height:420px;
+  display:grid;
+  place-items:center;
+  color:#64748b;
+}
+
+.ui-loading-card{
+  width:min(360px,100%);
+  display:grid;
+  justify-items:center;
+  gap:14px;
+  padding:30px 28px;
+  border:1px solid #dbe4ef;
+  border-radius:14px;
+  background:#fff;
+  box-shadow:0 14px 34px rgba(15,23,42,.08);
+  box-sizing:border-box;
+}
+
+.ui-loading-spinner{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  border:4px solid #dbeafe;
+  border-top-color:#2563eb;
+  animation:uiSpin .75s linear infinite;
+}
+
+.ui-loading-title{
+  font-weight:800;
+  color:#334155;
+}
+
+.ui-loading-subtitle{
+  font-size:13px;
+  line-height:1.5;
+}
+
+.ui-loading-dots::after{
+  content:"";
+  display:inline-block;
+  width:1.5em;
+  text-align:left;
+  animation:uiDots 1.2s steps(4,end) infinite;
+}
+
+.ui-loading-bar{
+  width:100%;
+  height:6px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e2e8f0;
+}
+
+.ui-loading-bar::before{
+  content:"";
+  display:block;
+  width:42%;
+  height:100%;
+  border-radius:999px;
+  background:#2563eb;
+  animation:uiBar 1.15s ease-in-out infinite;
+}
+
+@keyframes uiSpin{
+  to{transform:rotate(360deg);}
+}
+
+@keyframes uiDots{
+  0%{content:"";}
+  25%{content:".";}
+  50%{content:"..";}
+  75%,
+  100%{content:"...";}
+}
+
+@keyframes uiBar{
+  0%{transform:translateX(-120%);}
+  55%{transform:translateX(80%);}
+  100%{transform:translateX(240%);}
+}
+
+.ui-error-box{
+  color:#b42318;
+  background:#fff7f7;
+  border:1px solid #f4b4ae;
+  border-radius:10px;
+  padding:20px;
+}
+
+@media(max-width:1200px){
+  body{
+    padding:96px 20px 70px;
+  }
+
+  .testLayout{
+    flex-direction:column;
+  }
+
+  .testSidebar{
+    width:auto;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    padding:14px;
+  }
+
+  .testNavButton{
+    width:auto;
+    margin-bottom:0;
+    padding:8px 14px;
+    border:1px solid var(--skh-line,#cbd5e1);
+  }
+
+  .testContent{
+    width:100%;
+    box-sizing:border-box;
+  }
+}
+
+@media(max-width:640px){
+  body{
+    padding:92px 14px 66px;
+  }
+
+  .testHeader h1{
+    font-size:28px;
+  }
+
+  .testContent{
+    padding:14px;
+  }
+
+  .testSection{
+    padding:14px;
+  }
+
+  .testSidebar{
+    flex-direction:column;
+    width:100%;
+    box-sizing:border-box;
+  }
+
+  .testNavButton{
+    width:100%;
+  }
+
+  .testTableScroll{
+    max-height:62vh;
+  }
+}
+
+.ui-preload-wrapper{
+  min-width:0;
+}
+
+/*
+  子頁 ready event gating 用。
+  例如 UiStyleTest / UiButtonTest 會先讀 Sheet Theme，父頁等 skh-ui-test-ready 後才把 wrapper 顯示出來，
+  避免使用者看到 fallback 顏色再跳成 Sheet 顏色。
+*/
+.ui-preload-wrapper.is-waiting-ready{
+  visibility:hidden;
+  height:0;
+  overflow:hidden;
+}
+
+</style>
+</head>
+
+<body>
+
+<?!= include('共用設定檔/AppHeader', { subtitle: 'UI 測試中心', onClick: 'goHome()', maxWidth: '1800px' }) ?>
+
+<main class="testPage">
+
+<header class="testHeader">
+  <div class="testHeaderTop">
+    <div>
+      <h1>SKH CSS 測試頁</h1>
+      <p>模組化 UI 元件測試，請從選單切換想檢視的元件。</p>
+    </div>
+    <div class="testVersionStamp" title="目前載入的 Apps Script 版本">
+      測試版 <span>v<?= APP_VERSION ?></span>
+    </div>
+  </div>
+</header>
+
+<div class="testLayout">
+  <nav class="testSidebar" id="test-sidebar"></nav>
+
+  <div class="testContent" id="test-content">
+    <div style="padding:40px;text-align:center;color:#64748b;border:1px dashed var(--skh-line,#cbd5e1);border-radius:var(--skh-radius,8px);">
+      請從左側選單選擇要測試的元件
+    </div>
+  </div>
+</div>
+
+</main>
+
+<?!= getVersionBadgeHtml() ?>
+
+<script>
+(function(){
+
+  /*
+    UI Test 路由表
+
+    每一筆 path 會傳給後端 getUiTestPageContent(path)。
+    後端應回傳對應子頁 HTML 字串，例如：
+    - UiStyleTest.html
+    - UiButtonTest.html
+    - UiFormTest.html
+
+    注意：
+    父頁只負責「載入與插入子頁」。
+    各子頁自己的資料讀取與初始化，應放在子頁本身，例如 UiStyleTest 的 bootBaseEditor()。
+  */
+  var testPages = [
+    {id:'UiStyleTest',name:'00_基礎樣式',path:'共用設定檔/UI設定/00_基礎/UiStyleTest',waitForReadyEvent:'skh-ui-test-ready'},
+    {id:'UiButtonTest',name:'01_按鈕元件',path:'共用設定檔/UI設定/01_按鈕/UiButtonTest',waitForReadyEvent:'skh-ui-test-ready'},
+    {id:'UiFormTest',name:'02_表單元件',path:'共用設定檔/UI設定/02_表單/UiFormTest'},
+    {id:'UiTableTest',name:'03_表格元件',path:'共用設定檔/UI設定/03_表格/UiTableTest'},
+    {id:'UiAlertTest',name:'04_提示元件',path:'共用設定檔/UI設定/04_提示/UiAlertTest'},
+    {id:'UiLoadingTest',name:'05_載入互動',path:'共用設定檔/UI設定/05_互動/UiLoadingTest'},
+    {id:'UiModalTest',name:'06_彈跳視窗',path:'共用設定檔/UI設定/05_互動/UiModalTest'}
+  ];
+
+  var sidebar = document.getElementById('test-sidebar');
+  var content = document.getElementById('test-content');
+  var activeRequestId = 0;
+  var isPageLoading = false;
+
+  /*
+    將子頁 table 包成可橫向捲動容器。
+    這是父頁提供給所有 UiTest 子頁共用的版面保護，不負責資料載入。
+  */
+  function wrapTables(container){
+    var tables = container.querySelectorAll('table.testTable');
+
+    tables.forEach(function(table){
+      if(table.parentElement && table.parentElement.classList.contains('testTableScroll')){
+        return;
+      }
+
+      var wrap = document.createElement('div');
+      wrap.className = 'testTableScroll';
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+    });
+  }
+
+  /*
+    重要：innerHTML 插入的 <script> 不會自動執行。
+
+    所以子頁 HTML 插入後，父頁必須把子頁裡的 script 重新建立一次，
+    子頁的初始化函式才會真的執行。
+
+    例如 UiStyleTest.html / UiButtonTest.html：
+    - render()
+    - init()
+    - bind()
+    - loadBaseTheme() / loadButtonTheme()
+
+    這些都依賴此函式讓子頁 script 生效。
+  */
+  function runInsertedScripts(container){
+    var scripts = Array.prototype.slice.call(container.querySelectorAll('script'));
+
+    scripts.forEach(function(oldScript){
+      var newScript = document.createElement('script');
+
+      Array.prototype.slice.call(oldScript.attributes).forEach(function(attr){
+        newScript.setAttribute(attr.name, attr.value);
+      });
+
+      newScript.textContent = oldScript.textContent;
+      oldScript.parentNode.replaceChild(newScript, oldScript);
+    });
+  }
+
+  function activateButton(activeBtn){
+    var buttons = sidebar.querySelectorAll('.testNavButton');
+
+    buttons.forEach(function(btn){
+      btn.classList.remove('active');
+    });
+
+    if(activeBtn){
+      activeBtn.classList.add('active');
+    }
+  }
+
+  /*
+    載入鎖定：
+
+    使用者切換子頁後，在 getUiTestPageContent() 回傳、子頁 script 執行、
+    以及子頁 dispatch ready event 之前，左側選單全部 disabled。
+
+    目的：
+    1. 避免連點導致多個 request 同時回來。
+    2. 避免前一頁 ready event 誤影響下一頁。
+    3. 符合「載入中不可操作」的 UI 規則。
+  */
+  function setNavDisabled(disabled){
+    var buttons = sidebar.querySelectorAll('.testNavButton');
+
+    buttons.forEach(function(btn){
+      btn.disabled = !!disabled;
+    });
+  }
+
+
+  function showLoading(message){
+    content.classList.add('is-loading');
+    content.innerHTML =
+      '<div class="ui-loading-box" data-ui-loading="1">' +
+        '<div class="ui-loading-card">' +
+          '<div class="ui-loading-spinner"></div>' +
+          '<div class="ui-loading-title ui-loading-dots">' + message + '</div>' +
+          '<div class="ui-loading-subtitle">正在跟 Sheet 讀取設定，完成後才會顯示畫面。</div>' +
+          '<div class="ui-loading-bar"></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function showError(error){
+    isPageLoading = false;
+    setNavDisabled(false);
+    content.classList.remove('is-loading');
+    content.innerHTML =
+      '<div class="ui-error-box">載入失敗：' +
+      (error && error.message ? error.message : error) +
+      '</div>';
+  }
+
+  function buildLoadingNode(message){
+    var node = document.createElement('div');
+    node.className = 'ui-loading-box';
+    node.setAttribute('data-ui-loading','1');
+    node.innerHTML =
+      '<div class="ui-loading-card">' +
+        '<div class="ui-loading-spinner"></div>' +
+        '<div class="ui-loading-title ui-loading-dots">' + message + '</div>' +
+        '<div class="ui-loading-subtitle">正在套用 Sheet Theme，完成後才會顯示畫面。</div>' +
+        '<div class="ui-loading-bar"></div>' +
+      '</div>';
+    return node;
+  }
+
+  function revealLoadedWrapper(wrapper,loadingNode){
+    isPageLoading = false;
+    setNavDisabled(false);
+
+    if(loadingNode && loadingNode.parentNode){
+      loadingNode.parentNode.removeChild(loadingNode);
+    }
+
+    wrapper.classList.remove('is-waiting-ready');
+    content.classList.remove('is-loading');
+  }
+
+  function waitForReadyAndReveal(pageObj,requestId,wrapper,loadingNode){
+    var eventName = pageObj.waitForReadyEvent;
+
+    if(!eventName){
+      requestAnimationFrame(function(){
+        if(requestId !== activeRequestId){
+          return;
+        }
+
+        revealLoadedWrapper(wrapper,loadingNode);
+      });
+      return;
+    }
+
+    var done = false;
+    var timeoutId = null;
+
+    function cleanup(){
+      window.removeEventListener(eventName,onReady);
+      if(timeoutId){
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    }
+
+    function finish(){
+      if(done || requestId !== activeRequestId){
+        return;
+      }
+
+      done = true;
+      cleanup();
+      revealLoadedWrapper(wrapper,loadingNode);
+    }
+
+    function onReady(evt){
+      if(requestId !== activeRequestId){
+        cleanup();
+        return;
+      }
+
+      /*
+        UiStyleTest / UiButtonTest 會在 loadBaseTheme() / loadButtonTheme() 完成後 dispatch：
+        - skh-ui-style-ready
+        - skh-ui-test-ready
+
+        父頁不直接呼叫後端，也不猜 Sheet 什麼時候回來；
+        只等子頁宣告「我已經把 Sheet Theme 寫進 input / CSS variables」。
+      */
+      finish();
+    }
+
+    window.addEventListener(eventName,onReady);
+
+    /*
+      安全保底：避免子頁 JS 壞掉時永遠白畫面。
+      這不是用來解決正常載入時序；正常流程應由 ready event 立即 reveal。
+    */
+    timeoutId = setTimeout(function(){
+      if(done || requestId !== activeRequestId){
+        return;
+      }
+
+      console.warn(
+        '[SKH UI Test] 子頁未發出 ready event，改用保底 reveal：',
+        pageObj.id,
+        eventName
+      );
+
+      finish();
+    },15000);
+  }
+
+  /*
+    子頁載入入口。
+
+    呼叫後端：
+    - getUiTestPageContent(pageObj.path)
+
+    等待回傳：
+    - HTML 字串
+
+    回傳後流程：
+    1. 清空 #test-content。
+    2. 插入子頁 HTML。
+    3. 若該頁設定 waitForReadyEvent，wrapper 先保持隱藏。
+    4. wrapTables() 包裝 table。
+    5. runInsertedScripts() 執行子頁 script。
+    6. 子頁完成 Sheet/theme 初始化後 dispatch ready event。
+    7. 父頁 reveal wrapper。
+
+    重要：
+    本頁不直接改 color input，也不直接呼叫 getBaseCssSettings() / getButtonCssSettings()。
+    Sheet 資料來源與套用流程屬於子頁，例如 UiStyleTest.html 的 loadBaseTheme()、UiButtonTest.html 的 loadButtonTheme()。
+  */
+  function loadPage(pageObj,btn){
+    if(isPageLoading){
+      return;
+    }
+
+    isPageLoading = true;
+    setNavDisabled(true);
+
+    activeRequestId += 1;
+    var requestId = activeRequestId;
+
+    activateButton(btn);
+    showLoading('載入中：' + pageObj.name + '...');
+
+    google.script.run
+      .withSuccessHandler(function(html){
+        if(requestId !== activeRequestId){
+          return;
+        }
+
+        content.innerHTML = '';
+
+        var loadingNode = buildLoadingNode(
+          pageObj.waitForReadyEvent
+            ? '讀取 Sheet Theme 中：' + pageObj.name + '...'
+            : '載入中：' + pageObj.name + '...'
+        );
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'ui-preload-wrapper';
+
+        if(pageObj.waitForReadyEvent){
+          wrapper.classList.add('is-waiting-ready');
+        }
+
+        wrapper.innerHTML = html;
+
+        content.appendChild(loadingNode);
+        content.appendChild(wrapper);
+
+        wrapTables(wrapper);
+        waitForReadyAndReveal(pageObj,requestId,wrapper,loadingNode);
+        runInsertedScripts(wrapper);
+      })
+      .withFailureHandler(function(error){
+        if(requestId !== activeRequestId){
+          return;
+        }
+
+        showError(error);
+      })
+      .getUiTestPageContent(pageObj.path);
+  }
+
+  function renderSidebar(){
+    sidebar.innerHTML = '';
+
+    testPages.forEach(function(page){
+      var btn = document.createElement('button');
+      btn.className = 'testNavButton';
+      btn.textContent = page.name;
+      btn.onclick = function(){
+        loadPage(page,btn);
+      };
+      sidebar.appendChild(btn);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', renderSidebar);
+
+})();
+</script>
+
+
+</body>
+</html>

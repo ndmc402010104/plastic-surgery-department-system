@@ -1,0 +1,404 @@
+<style>
+/*
+檔案位置：共用設定檔/UI設定/01_按鈕/UiButton.html
+時間戳記：2026-06-01 18:55
+用途：SKH Design System 按鈕元件；以 UiStyle Theme Token 驅動按鈕顏色，避免 Button 與全站 Theme 各自維護重複色票。
+
+依賴檔案：
+- 共用設定檔/UI設定/00_基礎/UiStyle.html
+  提供全站基礎 CSS variables，例如：
+  --skh-primary
+  --skh-primary-soft
+  --skh-danger
+  --skh-success
+  --skh-warning
+  --skh-bg
+  --skh-text
+  --skh-muted
+  --skh-line
+  --skh-radius
+  --skh-transition
+
+載入流程：
+UiStyle.html 先宣告全站 Theme Token
+↓
+UiThemeLoader.html / UiStyleTest.html 從 Sheet 載入並覆蓋 Theme Token
+↓
+UiButton.html 讀取 Theme Token 產生按鈕樣式
+↓
+UiButtonTest.html 若作為 Builder 測試頁，會在 getButtonCssSettings() / getButtonDefaultCssSettings() 回傳並套用後，才發出 skh-ui-test-ready 讓父頁顯示
+
+2026-06-01 調整紀錄：
+1. 移除 Button 內部重複硬寫的 primary / danger 主色。
+2. Primary / Ghost / Camera / Selected 改吃 --skh-primary 與 --skh-primary-soft。
+3. Danger / Success / Warning 改吃 UiStyle 的語意色。
+4. Secondary 改吃頁面與 surface token，與整體 Design System 同步。
+5. 保留所有原本 class 名稱，避免既有頁面壞掉。
+6. Button Builder 顯示時序改由 UiButtonTest.html 控制：等 Sheet 設定套入後才 reveal，避免 fallback → Sheet 顏色跳動。
+
+注意：
+如果 Button 顏色與 Theme 不同步，請優先檢查：
+1. UiStyle 是否有宣告對應 CSS variable。
+2. UiThemeLoader 是否成功覆蓋 :root variable。
+3. 本檔 :root 中對應的 --skh-btn-* 是否仍指向 UiStyle token。
+*/
+
+/* =====================================
+   SKH Design System v1
+   01_按鈕 / UiButton
+   Theme-token-driven component
+===================================== */
+
+:root{
+
+  /* Base */
+  --skh-btn-base-border-width:1px;
+  --skh-btn-base-border-style:solid;
+  --skh-btn-base-border-color:transparent;
+  --skh-btn-base-radius:var(--skh-radius,10px);
+  --skh-btn-base-padding-y:10px;
+  --skh-btn-base-padding-x:16px;
+  --skh-btn-base-font-size:var(--skh-font-size,14px);
+  --skh-btn-base-font-weight:700;
+  --skh-btn-base-gap:6px;
+  --skh-btn-base-line-height:1.2;
+  --skh-btn-base-hover-shadow:0 8px 20px rgba(15,23,42,.08);
+  --skh-btn-base-active-shadow:0 3px 10px rgba(15,23,42,.06);
+  --skh-btn-base-focus-outline:3px solid rgba(52,79,159,.25);
+  --skh-btn-base-focus-outline-offset:2px;
+
+  /*
+    Role / Primary
+    來源：UiStyle Brand Token
+    - --skh-primary 由 UiStyle / Sheet Theme 控制
+    - 這裡不要再硬寫另一份品牌色，避免 Button 與全站 Theme 不同步
+  */
+  --skh-btn-primary-bg:var(--skh-primary,#344f9f);
+  --skh-btn-primary-text:#ffffff;
+  --skh-btn-primary-border:var(--skh-primary,#344f9f);
+  --skh-btn-primary-hover-bg:var(--skh-primary,#344f9f);
+  --skh-btn-primary-hover-border:var(--skh-primary,#344f9f);
+
+  /*
+    Role / Secondary
+    來源：UiStyle Page / Surface Token
+  */
+  --skh-btn-secondary-bg:var(--skh-surface-bg,#ffffff);
+  --skh-btn-secondary-text:var(--skh-text,#475569);
+  --skh-btn-secondary-border:var(--skh-line,#cbd5e1);
+  --skh-btn-secondary-hover-bg:var(--skh-bg,#f8fafc);
+  --skh-btn-secondary-hover-border:var(--skh-muted,#94a3b8);
+
+  /* Role / Danger */
+  --skh-btn-danger-bg:#fff7f7;
+  --skh-btn-danger-text:var(--skh-danger,#b42318);
+  --skh-btn-danger-border:#f4b4ae;
+  --skh-btn-danger-hover-bg:#feeceb;
+  --skh-btn-danger-hover-border:var(--skh-danger,#b42318);
+
+  /* Role / Success */
+  --skh-btn-success-bg:#f0fdf4;
+  --skh-btn-success-text:var(--skh-success,#15803d);
+  --skh-btn-success-border:#bbf7d0;
+  --skh-btn-success-hover-bg:#dcfce7;
+  --skh-btn-success-hover-border:var(--skh-success,#15803d);
+
+  /* Role / Warning */
+  --skh-btn-warning-bg:#fffbeb;
+  --skh-btn-warning-text:var(--skh-warning,#b45309);
+  --skh-btn-warning-border:#fde68a;
+  --skh-btn-warning-hover-bg:#fef3c7;
+  --skh-btn-warning-hover-border:var(--skh-warning,#b45309);
+
+  /*
+    Role / Ghost
+    來源：UiStyle Brand Token
+  */
+  --skh-btn-ghost-bg:transparent;
+  --skh-btn-ghost-text:var(--skh-primary,#344f9f);
+  --skh-btn-ghost-border:transparent;
+  --skh-btn-ghost-hover-bg:var(--skh-primary-soft,#eef3ff);
+  --skh-btn-ghost-hover-border:transparent;
+
+  /*
+    Role / Camera
+    保留 skh-btn-camera 既有 class，但改為跟隨 primary theme。
+  */
+  --skh-btn-camera-bg:var(--skh-primary-soft,#eef3ff);
+  --skh-btn-camera-text:var(--skh-primary,#1d4ed8);
+  --skh-btn-camera-border:#bfdbfe;
+  --skh-btn-camera-hover-bg:var(--skh-primary-soft,#dbeafe);
+  --skh-btn-camera-hover-border:var(--skh-primary,#93c5fd);
+
+  /* Size */
+  --skh-btn-sm-padding-y:6px;
+  --skh-btn-sm-padding-x:10px;
+  --skh-btn-sm-font-size:var(--skh-font-size-sm,13px);
+
+  --skh-btn-lg-padding-y:14px;
+  --skh-btn-lg-padding-x:20px;
+  --skh-btn-lg-font-size:var(--skh-font-size-lg,16px);
+
+  --skh-btn-full-width:100%;
+
+  /* Shape */
+  --skh-btn-icon-width:36px;
+  --skh-btn-icon-height:36px;
+  --skh-btn-icon-padding:0;
+
+  --skh-btn-pill-radius:var(--skh-radius-pill,999px);
+
+  /* State */
+  --skh-btn-selected-bg:var(--skh-primary,#344f9f);
+  --skh-btn-selected-text:#ffffff;
+  --skh-btn-selected-border:var(--skh-primary,#344f9f);
+
+  --skh-btn-loading-opacity:.85;
+  --skh-btn-loading-spinner-size:14px;
+  --skh-btn-loading-spinner-border-width:2px;
+  --skh-btn-loading-spinner-border-color:rgba(255,255,255,.35);
+  --skh-btn-loading-spinner-top-color:currentColor;
+
+  --skh-btn-disabled-opacity:.5;
+
+  /* Group */
+  --skh-btn-group-gap:8px;
+  --skh-btn-toolbar-gap:10px;
+
+  /* Mobile */
+  --skh-btn-mobile-min-height:44px;
+  --skh-btn-icon-mobile-width:44px;
+  --skh-btn-icon-mobile-height:44px;
+
+}
+
+/* Base */
+
+.skh-btn{
+  border:
+    var(--skh-btn-base-border-width)
+    var(--skh-btn-base-border-style)
+    var(--skh-btn-base-border-color);
+  border-radius:var(--skh-btn-base-radius);
+  padding:
+    var(--skh-btn-base-padding-y)
+    var(--skh-btn-base-padding-x);
+  font-size:var(--skh-btn-base-font-size);
+  font-weight:var(--skh-btn-base-font-weight);
+  cursor:pointer;
+  transition:
+    transform var(--skh-transition,.18s ease),
+    box-shadow var(--skh-transition,.18s ease),
+    background var(--skh-transition,.18s ease),
+    border-color var(--skh-transition,.18s ease),
+    color var(--skh-transition,.18s ease);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:var(--skh-btn-base-gap);
+  white-space:nowrap;
+  user-select:none;
+  line-height:var(--skh-btn-base-line-height);
+}
+
+.skh-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:var(--skh-btn-base-hover-shadow);
+}
+
+.skh-btn:active{
+  transform:translateY(0);
+  box-shadow:var(--skh-btn-base-active-shadow);
+}
+
+.skh-btn:focus-visible{
+  outline:var(--skh-btn-base-focus-outline);
+  outline-offset:var(--skh-btn-base-focus-outline-offset);
+}
+
+.skh-btn:disabled,
+.skh-btn.is-disabled{
+  opacity:var(--skh-btn-disabled-opacity);
+  cursor:not-allowed;
+  transform:none;
+  box-shadow:none;
+  pointer-events:none;
+}
+
+/* Role */
+
+.skh-btn-primary{
+  background:var(--skh-btn-primary-bg);
+  color:var(--skh-btn-primary-text);
+  border-color:var(--skh-btn-primary-border);
+}
+
+.skh-btn-primary:hover{
+  background:var(--skh-btn-primary-hover-bg);
+  border-color:var(--skh-btn-primary-hover-border);
+}
+
+.skh-btn-secondary{
+  background:var(--skh-btn-secondary-bg);
+  color:var(--skh-btn-secondary-text);
+  border-color:var(--skh-btn-secondary-border);
+}
+
+.skh-btn-secondary:hover{
+  background:var(--skh-btn-secondary-hover-bg);
+  border-color:var(--skh-btn-secondary-hover-border);
+}
+
+.skh-btn-danger{
+  background:var(--skh-btn-danger-bg);
+  color:var(--skh-btn-danger-text);
+  border-color:var(--skh-btn-danger-border);
+}
+
+.skh-btn-danger:hover{
+  background:var(--skh-btn-danger-hover-bg);
+  border-color:var(--skh-btn-danger-hover-border);
+}
+
+.skh-btn-success{
+  background:var(--skh-btn-success-bg);
+  color:var(--skh-btn-success-text);
+  border-color:var(--skh-btn-success-border);
+}
+
+.skh-btn-success:hover{
+  background:var(--skh-btn-success-hover-bg);
+  border-color:var(--skh-btn-success-hover-border);
+}
+
+.skh-btn-warning{
+  background:var(--skh-btn-warning-bg);
+  color:var(--skh-btn-warning-text);
+  border-color:var(--skh-btn-warning-border);
+}
+
+.skh-btn-warning:hover{
+  background:var(--skh-btn-warning-hover-bg);
+  border-color:var(--skh-btn-warning-hover-border);
+}
+
+.skh-btn-ghost{
+  background:var(--skh-btn-ghost-bg);
+  color:var(--skh-btn-ghost-text);
+  border-color:var(--skh-btn-ghost-border);
+  box-shadow:none;
+}
+
+.skh-btn-ghost:hover{
+  background:var(--skh-btn-ghost-hover-bg);
+  border-color:var(--skh-btn-ghost-hover-border);
+  box-shadow:none;
+}
+
+.skh-btn-camera{
+  background:var(--skh-btn-camera-bg);
+  color:var(--skh-btn-camera-text);
+  border-color:var(--skh-btn-camera-border);
+}
+
+.skh-btn-camera:hover{
+  background:var(--skh-btn-camera-hover-bg);
+  border-color:var(--skh-btn-camera-hover-border);
+}
+
+/* Size */
+
+.skh-btn-sm{
+  padding:
+    var(--skh-btn-sm-padding-y)
+    var(--skh-btn-sm-padding-x);
+  font-size:var(--skh-btn-sm-font-size);
+}
+
+.skh-btn-lg{
+  padding:
+    var(--skh-btn-lg-padding-y)
+    var(--skh-btn-lg-padding-x);
+  font-size:var(--skh-btn-lg-font-size);
+}
+
+.skh-btn-full{
+  width:var(--skh-btn-full-width);
+}
+
+/* Shape */
+
+.skh-btn-icon{
+  width:var(--skh-btn-icon-width);
+  height:var(--skh-btn-icon-height);
+  padding:var(--skh-btn-icon-padding);
+  flex:0 0 auto;
+}
+
+.skh-btn-pill{
+  border-radius:var(--skh-btn-pill-radius);
+}
+
+/* State */
+
+.skh-btn-selected{
+  background:var(--skh-btn-selected-bg);
+  color:var(--skh-btn-selected-text);
+  border-color:var(--skh-btn-selected-border);
+}
+
+.skh-btn-loading{
+  pointer-events:none;
+  opacity:var(--skh-btn-loading-opacity);
+}
+
+.skh-btn-loading::before{
+  content:'';
+  width:var(--skh-btn-loading-spinner-size);
+  height:var(--skh-btn-loading-spinner-size);
+  border:
+    var(--skh-btn-loading-spinner-border-width)
+    solid
+    var(--skh-btn-loading-spinner-border-color);
+  border-top-color:var(--skh-btn-loading-spinner-top-color);
+  border-radius:50%;
+  animation:skhSpin .8s linear infinite;
+  flex:0 0 auto;
+}
+
+@keyframes skhSpin{
+  from{ transform:rotate(0deg); }
+  to{ transform:rotate(360deg); }
+}
+
+/* Group */
+
+.skh-btn-group{
+  display:inline-flex;
+  flex-wrap:wrap;
+  gap:var(--skh-btn-group-gap);
+  align-items:center;
+}
+
+.skh-btn-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--skh-btn-toolbar-gap);
+  align-items:center;
+}
+
+/* Mobile */
+
+@media(max-width:640px){
+
+  .skh-btn{
+    min-height:var(--skh-btn-mobile-min-height);
+  }
+
+  .skh-btn-icon{
+    width:var(--skh-btn-icon-mobile-width);
+    height:var(--skh-btn-icon-mobile-height);
+  }
+
+}
+</style>

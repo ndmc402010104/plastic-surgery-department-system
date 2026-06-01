@@ -1,0 +1,110 @@
+<div class="testSection">
+  <h2>Button 設定測試</h2>
+  <p class="testNote">先測 primary 背景色是否能讀取、修改、儲存回 Sheet。</p>
+
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+    <button class="skh-btn skh-btn-primary">儲存</button>
+    <button class="skh-btn skh-btn-secondary">取消</button>
+    <button class="skh-btn skh-btn-danger">刪除</button>
+    <button class="skh-btn skh-btn-camera">📷 掃描</button>
+  </div>
+
+  <hr>
+
+  <label>
+    Primary 背景色
+    <input id="primaryBgPicker" type="color">
+  </label>
+
+  <button class="skh-btn skh-btn-primary" onclick="savePrimaryBg()">
+    儲存 Primary
+  </button>
+
+  <div id="themeStatus" style="margin-top:12px;color:#64748b;"></div>
+</div>
+
+<script>
+function applyButtonTheme(data){
+
+  const root =
+    document.documentElement;
+
+  Object.keys(data).forEach(function(className){
+
+    Object.keys(data[className]).forEach(function(prop){
+
+      const value =
+        data[className][prop];
+
+      const cssVar =
+        '--skh-btn-' + className + '-' + prop;
+
+      root.style.setProperty(
+        cssVar,
+        value
+      );
+
+    });
+
+  });
+
+  if(
+    data.primary &&
+    data.primary.bg
+  ){
+    document.getElementById('primaryBgPicker').value =
+      data.primary.bg;
+  }
+
+  document.getElementById('themeStatus').textContent =
+    '已讀取 Sheet 設定';
+}
+
+
+function loadButtonTheme(){
+
+  google.script.run
+    .withSuccessHandler(applyButtonTheme)
+    .withFailureHandler(function(err){
+      document.getElementById('themeStatus').textContent =
+        '讀取失敗：' + err.message;
+    })
+    .getButtonCssSettings();
+
+}
+
+
+function savePrimaryBg(){
+
+  const value =
+    document.getElementById('primaryBgPicker').value;
+
+  document.documentElement.style.setProperty(
+    '--skh-btn-primary-bg',
+    value
+  );
+
+  document.getElementById('themeStatus').textContent =
+    '儲存中...';
+
+  google.script.run
+    .withSuccessHandler(function(){
+      document.getElementById('themeStatus').textContent =
+        '已儲存 Primary 背景色：' + value;
+    })
+    .withFailureHandler(function(err){
+      document.getElementById('themeStatus').textContent =
+        '儲存失敗：' + err.message;
+    })
+    .saveButtonCssSetting(
+      'primary',
+      'bg',
+      value
+    );
+
+}
+
+
+window.loadButtonTheme = loadButtonTheme;
+loadButtonTheme();
+</script>
