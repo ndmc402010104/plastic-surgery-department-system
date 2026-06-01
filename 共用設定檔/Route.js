@@ -105,6 +105,35 @@ function doGet(e){
     return showDressingFrontPage();
   }
 
+
+  /*
+  ========================================
+  敷料領用
+  ========================================
+  */
+
+  if(
+    page ===
+    'dressingUse'
+  ){
+    return showDressingUsePage();
+  }
+
+
+  /*
+  ========================================
+  敷料建檔
+  ========================================
+  */
+
+  if(
+    page ===
+    'dressingDict'
+  ){
+    return showDressingDictPage();
+  }
+
+
     /*
   ========================================
   會議管理後台
@@ -182,6 +211,7 @@ function isDressingBarcodeAction_(action){
 
   return [
     'lookupDressingBarcode',
+    'findDressingPairCandidates',
     'saveDressingBarcode',
     'listDressingBarcode',
     'reorderDressingBarcode',
@@ -189,6 +219,52 @@ function isDressingBarcodeAction_(action){
     'ping',
     'whoami'
   ].indexOf(action || '') >= 0;
+
+}
+
+
+/*
+========================================
+敷料頁面
+========================================
+*/
+
+function showDressingUsePage(){
+
+  const template =
+    HtmlService.createTemplateFromFile(
+      '敷料領用登錄系統/敷料領用/DressingUse'
+    );
+
+  template.appEntryUrl =
+    getAppEntryUrl();
+
+  template.versionBadgeHtml =
+    getVersionBadgeHtml();
+
+  return template
+    .evaluate()
+    .setTitle('敷料領用');
+
+}
+
+
+function showDressingDictPage(){
+
+  const template =
+    HtmlService.createTemplateFromFile(
+      '敷料領用登錄系統/敷料建檔/DressingDict'
+    );
+
+  template.appEntryUrl =
+    getAppEntryUrl();
+
+  template.versionBadgeHtml =
+    getVersionBadgeHtml();
+
+  return template
+    .evaluate()
+    .setTitle('敷料建檔');
 
 }
 

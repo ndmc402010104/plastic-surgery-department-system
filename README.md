@@ -10,9 +10,9 @@ Google Apps Script × Google Sheets × GitHub
 
 正式版：v2.17.0-202605292358
 
-測試版: v2.27.0-202606020010
+測試版: v2.27.1-202606020013
 
-Github: v2.27.0-202606020010
+Github: v2.27.1-202606020013
 
 ---
 
@@ -41,7 +41,7 @@ Github: v2.27.0-202606020010
 
 ### Regression Checklist
 
-* [敷料建檔 Regression Checklist](敷料領用登錄系統/Dressing_table_regression_checklist.md)
+- [敷料建檔 Regression Checklist](敷料領用登錄系統/敷料建檔/Dressing_table_regression_checklist.md)
 
 用途：
 
@@ -399,85 +399,22 @@ v2.26.0-2026060103xx
 
 ---
 
-v2.27.0-202606020003
+v2.18.0-202605300021
 
 更新：
 
-- 準備Merge CSS回主幹，色票沒按空白問題還沒有解決
+- 分支github出去展示，繼續更新master
 
 ---
 
-v2.26.0-202606010212
+正式版 v2.17.0-202605292346
+
+來源：
+v2.16.9-202605292314
 
 更新：
 
-* 完成 Design System Theme Engine Foundation
-* 完成 Base Style Builder v1
-* 完成 Button Builder v1
-* 建立 Theme Loader
-* 建立 Theme Database
-* 完成 Sheet 自動建立與 Token 自動補齊
-* 建立 Default / Current 雙版本 Theme 架構
-* 建立 Design System Studio 開發流程
-* 建立 UiStyleTest / UiButtonTest Builder 測試流程
-* 建立 00_基礎與 01_按鈕的 Theme Sheet 串接模式
-
----
-
-v2.25.0-202606010048
-
-更新：
-
-* 完成 CSS 測試頁按鈕元件
-* 開始建立基礎樣式編輯器
-
----
-
-v2.24.1-202605311423
-
-更新：
-
-* 完成 AJAX 及按鈕測試 v1
-
----
-
-v2.24.0-202605311339
-
-更新：
-
-* 更新 UI 測試頁面成 AJAX 互動
-
----
-
-v2.23.0-202605302353
-
-更新：
-
-* 完成按鈕測試 section，可以開始設計
-
----
-
-v2.22.0-202605301523
-
-更新：
-
-* 完成 CSS 測試 101
-
----
-
-v2.21.0-202605301417
-
-更新：
-
-* 建立模組化基本架構
-
----
-
-v2.20.0-202605301355
-
-更新：
-
-* 開始使用 UI 測試中心
+- 成功完成敷料登陸table checklist
 
 ---
 
@@ -658,6 +595,8 @@ Design System 不只是樣式
 
 把資料變成系統
 ```
+
+
 
 
 
