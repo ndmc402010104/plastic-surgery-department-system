@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
 <!--
 檔案位置：科室系統用戶端/DressingFront.html
-時間戳記：2026-06-02 08:29 UTC+8
-用途：敷料領用/建檔/庫存前端；調整搜尋候選顯示為「院內碼｜敷料名稱＋規格｜自費價格」在左、狀態在右，保留庫存 MVP 與批號明細。
+時間戳記：2026-06-02 08:40 UTC+8
+用途：敷料領用/建檔/庫存前端；調整搜尋候選顯示為「院內碼｜敷料名稱＋規格」與 GTIN/盒裝換算狀態，右側保留使用狀態，保留庫存 MVP 與批號明細。
 -->
 <html>
 <head>
@@ -666,9 +666,13 @@ tr.editing .dictGtinScanBtn{
   color:#172033;
 }
 
-.searchSuggestPrice{
+.searchSuggestPackMeta{
+  display:block;
+  margin-top:3px;
   color:#64748b;
   font-size:13px;
+  font-weight:700;
+  line-height:1.35;
 }
 
 .searchSuggestStatus{
@@ -677,6 +681,14 @@ tr.editing .dictGtinScanBtn{
   font-size:13px;
   font-weight:900;
   white-space:nowrap;
+}
+
+.searchSuggestStatus.inactive{
+  color:#991b1b;
+}
+
+.searchSuggestStatus.trial{
+  color:#b45309;
 }
 
 @media(max-width:960px){
@@ -3045,13 +3057,37 @@ function hideSearchSuggestions(context){
   }
 }
 
-function formatDressingPriceForSuggest(item){
-  const price = String((item && item.category) || '').trim();
-  return price ? '自費價格 ' + price + '元' : '自費價格未填';
-}
-
 function formatDressingStatusForSuggest(item){
   return String((item && item.status) || '').trim() || '狀態未填';
+}
+
+function getDressingStatusClassForSuggest(item){
+  const status = formatDressingStatusForSuggest(item);
+  if(status === '停用') return 'inactive';
+  if(status === '試用') return 'trial';
+  return '';
+}
+
+function hasSuggestValue(value){
+  return String(value || '').trim() !== '';
+}
+
+function formatDressingPackMetaForSuggest(item){
+  item = item || {};
+  const hasSingleGtin = hasSuggestValue(item.singleGtin || item.gtin);
+  const hasBoxGtin = hasSuggestValue(item.boxGtin);
+  const boxQuantity = String(item.boxQuantity || '').trim();
+
+  let boxQuantityText = '1盒=不適用';
+  if(hasBoxGtin){
+    boxQuantityText = boxQuantity ? ('1盒=' + boxQuantity + '單位') : '1盒=未設定';
+  }
+
+  return [
+    '單包GTIN ' + (hasSingleGtin ? '✓' : '✗'),
+    '盒裝GTIN ' + (hasBoxGtin ? '✓' : '✗'),
+    boxQuantityText
+  ].join('　');
 }
 
 function renderSearchSuggestions(context, matches, query){
@@ -3069,16 +3105,16 @@ function renderSearchSuggestions(context, matches, query){
     '<div class="searchSuggestMeta">找到 ' + matches.length + ' 筆候選，請點選帶入</div>' +
     matches.map(function(item, idx){
       const dressingText = [item.dressingName || '', item.size || ''].filter(Boolean).join(' ');
+      const statusClass = getDressingStatusClassForSuggest(item);
       return `
         <button type="button" class="searchSuggestItem" data-context="${escapeHtml(context)}" data-index="${idx}">
           <span class="searchSuggestMain">
             <span class="searchSuggestCode">${escapeHtml(item.hospitalCode || '')}</span>
             <span>｜</span>
             <span class="searchSuggestName">${escapeHtml(dressingText || '未命名敷料')}</span>
-            <span>｜</span>
-            <span class="searchSuggestPrice">${escapeHtml(formatDressingPriceForSuggest(item))}</span>
+            <span class="searchSuggestPackMeta">${escapeHtml(formatDressingPackMetaForSuggest(item))}</span>
           </span>
-          <span class="searchSuggestStatus">${escapeHtml(formatDressingStatusForSuggest(item))}</span>
+          <span class="searchSuggestStatus ${escapeHtml(statusClass)}">${escapeHtml(formatDressingStatusForSuggest(item))}</span>
         </button>
       `;
     }).join('');
@@ -5521,7 +5557,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.4-202606020831</span>
+      <span>v.2.27.4-202606020840</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
