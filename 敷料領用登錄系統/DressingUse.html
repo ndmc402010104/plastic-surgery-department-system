@@ -385,9 +385,23 @@
 <script>
 let APP_ENTRY_URL = '<?= appEntryUrl ?>';
 let APP_PROD_URL = '<?= appProdUrl ?>';
+const GITHUB_PAGE_MAP = {
+  home: '敷料領用登錄系統/DressingFront.html',
+  dressingFront: '敷料領用登錄系統/DressingFront.html',
+  dressingUse: '敷料領用登錄系統/DressingUse.html'
+};
 if (APP_ENTRY_URL.includes('<' + '?=') || APP_ENTRY_URL.trim() === '') APP_ENTRY_URL = 'https://script.google.com/macros/s/AKfycbwbz8pXfU68j2aFeF_AaDmmG6Vco3JsPSw-PGyYeLu0AF3vCfzaZJQFOjORnwSw8Xp4/exec';
 if (APP_PROD_URL.includes('<' + '?=') || APP_PROD_URL.trim() === '') APP_PROD_URL = 'https://script.google.com/macros/s/AKfycbwbz8pXfU68j2aFeF_AaDmmG6Vco3JsPSw-PGyYeLu0AF3vCfzaZJQFOjORnwSw8Xp4/exec';
-function goHome(){ window.top.location.href = window.location.hostname.includes('github.io') ? APP_PROD_URL : APP_ENTRY_URL; }
+function isGithubPage(){ return window.location.hostname.includes('github.io'); }
+function getGithubRepoBasePath(){
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  return parts.length ? '/' + parts[0] + '/' : '/';
+}
+function getGithubPageUrl(pageKey){
+  const path = GITHUB_PAGE_MAP[pageKey] || GITHUB_PAGE_MAP.home;
+  return window.location.origin + getGithubRepoBasePath() + path;
+}
+function goHome(){ window.top.location.href = isGithubPage() ? getGithubPageUrl('home') : APP_ENTRY_URL; }
 </script>
 <script>
 const DEFAULT_STAFF_LIST = <?!= JSON.stringify(getDefaultStaffList()) ?>;

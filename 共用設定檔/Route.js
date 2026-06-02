@@ -8,6 +8,50 @@ Route.gs
 var APP_REQUEST_ENV =
   APP_DEFAULT_ENV;
 
+var APP_SCRIPT_PAGE_ROUTES = [
+  {
+    keys:['signmeeting'],
+    handler:function(e){ return showSignMeetingPage(e); }
+  },
+  {
+    keys:['signqr'],
+    handler:function(){ return showSignQRGeneratorPage(); }
+  },
+  {
+    keys:['hospitalsignin'],
+    handler:function(){ return showHospitalSignInPage(); }
+  },
+  {
+    keys:['dressingfront'],
+    handler:function(){ return showDressingFrontPage(); }
+  },
+  {
+    keys:['dressinguse', 'dressingUse'],
+    handler:function(){ return showDressingUsePage(); }
+  },
+  {
+    keys:['dressingDict'],
+    handler:function(){ return showDressingDictPage(); }
+  },
+  {
+    keys:['uitest'],
+    handler:function(){
+      return HtmlService
+        .createTemplateFromFile('共用設定檔/UI設定/99_文件/skh-ui-test-page')
+        .evaluate()
+        .setTitle('SKH UI 測試中心');
+    }
+  }
+];
+
+var GITHUB_PAGE_ROUTES = {
+  home:'敷料領用登錄系統/DressingFront.html',
+  frontIndex:'科室系統用戶端/FrontIndex.html',
+  dressingFront:'敷料領用登錄系統/DressingFront.html',
+  dressingUse:'敷料領用登錄系統/DressingUse.html',
+  dressingDict:'敷料領用登錄系統/敷料建檔/DressingDict.html'
+};
+
 function doGet(e){
 
   if(
@@ -74,101 +118,9 @@ function doGet(e){
     ADMIN_ACCOUNT +
     ADMIN_PASSWORD;
 
-
-  /*
-  ========================================
-  會議簽到
-  ========================================
-  */
-
-  if(page === 'signmeeting'){
-    return showSignMeetingPage(e);
-  }
-
-
-  /*
-  ========================================
-  QR產生
-  ========================================
-  */
-
-  if(page === 'signqr'){
-    return showSignQRGeneratorPage();
-  }
-
-
-  /*
-  ========================================
-  醫院系統登入
-  ========================================
-  */
-
-  if(page === 'hospitalsignin'){
-    return showHospitalSignInPage();
-  }
-
-
-  /*
-  ========================================
-  後台首頁
-  ========================================
-  */
-
   if(page === adminPageKey){
     return showAdminIndexPage();
   }
-
-
-  /*
-  ========================================
-  敷料首頁
-  ========================================
-  */
-
-  if(
-    page ===
-    'dressingfront'
-  ){
-    return showDressingFrontPage();
-  }
-
-
-  /*
-  ========================================
-  敷料領用
-  ========================================
-  */
-
-  if(
-    page ===
-    'dressinguse'
-    ||
-    page ===
-    'dressingUse'
-  ){
-    return showDressingUsePage();
-  }
-
-
-  /*
-  ========================================
-  敷料建檔
-  ========================================
-  */
-
-  if(
-    page ===
-    'dressingDict'
-  ){
-    return showDressingDictPage();
-  }
-
-
-    /*
-  ========================================
-  會議管理後台
-  ========================================
-  */
 
   if(
     page === 'meeting'
@@ -178,11 +130,13 @@ function doGet(e){
     return showAdminMeetingPage();
   }
 
-  //CSS模組化分支多出來的按鈕
-  if (page === 'uitest') {
-    return HtmlService.createTemplateFromFile('共用設定檔/UI設定/99_文件/skh-ui-test-page')
-      .evaluate()
-      .setTitle('SKH UI 測試中心');
+  const route =
+    resolveAppScriptPageRoute_(
+      page
+    );
+
+  if(route){
+    return route.handler(e);
   }
 
   /*
@@ -192,6 +146,49 @@ function doGet(e){
   */
 
   return showFrontIndex();
+
+}
+
+function resolveAppScriptPageRoute_(page){
+
+  const routeKey =
+    page || '';
+
+  for(
+    let i = 0;
+    i < APP_SCRIPT_PAGE_ROUTES.length;
+    i++
+  ){
+    const route =
+      APP_SCRIPT_PAGE_ROUTES[i];
+
+    if(
+      route.keys.indexOf(
+        routeKey
+      ) >= 0
+    ){
+      return route;
+    }
+  }
+
+  return null;
+
+}
+
+function getGithubPageRoutes(){
+
+  return Object.assign(
+    {},
+    GITHUB_PAGE_ROUTES
+  );
+
+}
+
+function getGithubPageRoutesJson(){
+
+  return JSON.stringify(
+    getGithubPageRoutes()
+  );
 
 }
 

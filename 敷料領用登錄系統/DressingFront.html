@@ -1890,6 +1890,12 @@ tr.editing select:not(.readonly):focus{
 <script>
 let APP_ENTRY_URL = '<?= appEntryUrl ?>';
 let APP_PROD_URL = '<?= appProdUrl ?>';
+const GITHUB_PAGE_MAP = {
+  home: '敷料領用登錄系統/DressingFront.html',
+  dressingFront: '敷料領用登錄系統/DressingFront.html',
+  dressingUse: '敷料領用登錄系統/DressingUse.html',
+  dressingDict: '敷料領用登錄系統/敷料建檔/DressingDict.html'
+};
 
 if (APP_ENTRY_URL.includes('<' + '?=') || APP_ENTRY_URL.trim() === '') {
   APP_ENTRY_URL = 'https://script.google.com/macros/s/AKfycbwbz8pXfU68j2aFeF_AaDmmG6Vco3JsPSw-PGyYeLu0AF3vCfzaZJQFOjORnwSw8Xp4/exec'; 
@@ -1899,18 +1905,35 @@ if (APP_PROD_URL.includes('<' + '?=') || APP_PROD_URL.trim() === '') {
   APP_PROD_URL = 'https://script.google.com/macros/s/AKfycbwbz8pXfU68j2aFeF_AaDmmG6Vco3JsPSw-PGyYeLu0AF3vCfzaZJQFOjORnwSw8Xp4/exec';
 }
 
+function isGithubPage(){
+  return window.location.hostname.includes('github.io');
+}
+
+function getGithubRepoBasePath(){
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  return parts.length ? '/' + parts[0] + '/' : '/';
+}
+
+function getGithubPageUrl(pageKey){
+  const path = GITHUB_PAGE_MAP[pageKey] || GITHUB_PAGE_MAP.home;
+  return window.location.origin + getGithubRepoBasePath() + path;
+}
+
 function goHome(){
   window.top.location.href =
-    window.location.hostname.includes('github.io')
-      ? APP_PROD_URL
+    isGithubPage()
+      ? getGithubPageUrl('home')
       : APP_ENTRY_URL;
 }
 
 function goDressingUse(){
+  if(isGithubPage()){
+    window.top.location.href = getGithubPageUrl('dressingUse');
+    return;
+  }
+
   const baseUrl =
-    window.location.hostname.includes('github.io')
-      ? APP_PROD_URL
-      : APP_ENTRY_URL;
+    APP_ENTRY_URL;
 
   window.top.location.href =
     baseUrl +
@@ -9154,7 +9177,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.8-202606030152</span>
+      <span>v.2.27.8-202606030755</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
@@ -9171,6 +9194,7 @@ function normalizeTextForCompare(value){
 
 </body>
 </html>
+
 
 
 

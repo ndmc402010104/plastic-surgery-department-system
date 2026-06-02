@@ -236,8 +236,35 @@ const APP_PROD_URL =
 const APP_ENV =
 '<?= appEnv ?>';
 
-const DRESSING_GITHUB_URL =
-'https://ndmc402010104.github.io/plastic-surgery-department-system/';
+const GITHUB_PAGE_MAP = {
+  home: '',
+  dressingFront: '敷料領用登錄系統/DressingFront.html',
+  dressingUse: '敷料領用登錄系統/DressingUse.html'
+};
+
+
+function getGithubRepoBasePath(){
+
+  const parts =
+    window.location.pathname.split('/').filter(Boolean);
+
+  return parts.length
+    ? '/' + parts[0] + '/'
+    : '/';
+
+}
+
+
+function getGithubPageUrl(pageKey){
+
+  const path =
+    GITHUB_PAGE_MAP[pageKey] || GITHUB_PAGE_MAP.home;
+
+  return window.location.origin +
+    getGithubRepoBasePath() +
+    path;
+
+}
 
 
 function getCurrentAppEnv(){
@@ -372,7 +399,7 @@ function goDressingFront(){
   window.top.location.href =
     env === 'dev'
       ? buildAppPageUrl(APP_DEV_URL, 'dressingfront', 'dev')
-      : DRESSING_GITHUB_URL;
+      : getGithubPageUrl('dressingFront');
 
 }
 

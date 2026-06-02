@@ -13,11 +13,21 @@
 <body>
 
 <script>
+const GITHUB_PAGE_MAP = {
+  dressingFront: '敷料領用登錄系統/DressingFront.html',
+  dressingUse: '敷料領用登錄系統/DressingUse.html'
+};
+
+function getRepoBasePath(){
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  return parts.length ? '/' + parts[0] + '/' : '/';
+}
 
 window.location.replace(
-'/plastic-surgery-department-system/敷料領用登錄系統/DressingFront.html'
+  window.location.origin +
+  getRepoBasePath() +
+  GITHUB_PAGE_MAP.dressingFront
 );
-
 </script>
 
 </body>
