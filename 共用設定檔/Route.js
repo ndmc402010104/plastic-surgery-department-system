@@ -330,6 +330,31 @@ function getVersionBadgeHtml(options){
       ].join('')
     : '';
 
+  const currentEnv =
+    APP_REQUEST_ENV === 'dev'
+    ? 'dev'
+    : 'prod';
+
+  const targetEnv =
+    currentEnv === 'dev'
+    ? 'prod'
+    : 'dev';
+
+  const targetUrl =
+    targetEnv === 'dev'
+    ? APP_DEV_URL
+    : APP_ENTRY_URL;
+
+  const currentLabel =
+    currentEnv === 'dev'
+    ? '測試版'
+    : '正式版';
+
+  const targetTitle =
+    currentEnv === 'dev'
+    ? '切換到正式版'
+    : '切換到目前測試版';
+
   return [
     '<style>',
     '.appVersionFooter{',
@@ -395,8 +420,8 @@ function getVersionBadgeHtml(options){
     '<div class="appVersionFooter">',
     '<a class="appVersionBadge" href="',
     getAppEnvUrl(
-      APP_DEV_URL,
-      'dev'
+      targetUrl,
+      targetEnv
     ),
     '" target="_top" data-dev-url="',
     APP_DEV_URL,
@@ -406,8 +431,12 @@ function getVersionBadgeHtml(options){
     APP_VERSION,
     '" data-default-env="',
     APP_DEFAULT_ENV,
-    '" title="切換到目前測試版">',
-    '<span class="appVersionBadgeMode" data-version-mode>正式版</span>',
+    '" title="',
+    targetTitle,
+    '">',
+    '<span class="appVersionBadgeMode" data-version-mode>',
+    currentLabel,
+    '</span>',
     '<span>v',
     APP_VERSION,
     '</span>',

@@ -232,6 +232,9 @@ const APP_ENTRY_URL =
 const APP_DEV_URL =
 '<?= appDevUrl ?>';
 
+const APP_PROD_URL =
+'<?= appProdUrl ?>';
+
 const DRESSING_GITHUB_URL =
 'https://ndmc402010104.github.io/plastic-surgery-department-system/';
 
@@ -275,12 +278,27 @@ function getCurrentAppEnv(){
 
   }
 
-  return 'dev';
+  return 'prod';
 
 }
 
 
 function buildAppPageUrl(baseUrl, page, env){
+
+  const params =
+    [];
+
+  if(page){
+    params.push(
+      'page=' +
+      encodeURIComponent(page)
+    );
+  }
+
+  params.push(
+    'appEnv=' +
+    encodeURIComponent(env)
+  );
 
   const separator =
     baseUrl.indexOf('?') >= 0
@@ -289,22 +307,36 @@ function buildAppPageUrl(baseUrl, page, env){
 
   return baseUrl +
     separator +
-    'page=' +
-    encodeURIComponent(page) +
-    '&appEnv=' +
-    encodeURIComponent(env);
+    params.join('&');
 
 }
 
 
 function goPage(page){
 
+  const env =
+    getCurrentAppEnv();
+
+  const baseUrl =
+    env === 'dev'
+      ? APP_DEV_URL
+      : APP_PROD_URL;
+
   window.top.location.href =
-    APP_ENTRY_URL +
-    '?page=' +
-    encodeURIComponent(
-      page
-    );
+    buildAppPageUrl(baseUrl, page, env);
+
+}
+
+
+function goHome(){
+
+  const env =
+    getCurrentAppEnv();
+
+  window.top.location.href =
+    env === 'dev'
+      ? buildAppPageUrl(APP_DEV_URL, '', 'dev')
+      : buildAppPageUrl(APP_PROD_URL, '', 'prod');
 
 }
 
@@ -356,7 +388,7 @@ function goUiTest(){
 
 <main class="shell">
 
-<?!= include('共用設定檔/AppHeader', { subtitle: '常用作業入口', onClick: 'window.top.location.href=APP_ENTRY_URL', maxWidth: '980px' }) ?>
+<?!= include('共用設定檔/AppHeader', { subtitle: '常用作業入口', onClick: 'goHome()', maxWidth: '980px' }) ?>
 
 <nav class="pageMap" aria-label="頁面地圖">
   <span class="pageMapCurrent">首頁</span>
