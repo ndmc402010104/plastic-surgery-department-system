@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
 <!--
 檔案位置：科室系統用戶端/DressingFront.html
-時間戳記：2026-06-02 17:37 UTC+8
-用途：敷料領用/建檔/庫存前端；修正庫存盤點批號下拉、掃碼批號預設、該批號目前數量/總庫存數量、實際盤點盒數與單位數；盤點時主檔已有一盒數量不再顯示一盒數量輸入框，主檔缺值才顯示設定按鈕；掃到目前無庫存的批號時提示切換入庫並沿用掃描碼。
+時間戳記：2026-06-02 18:32 UTC+8
+用途：敷料領用/建檔/庫存前端；優化本次入庫/盤點作業區為左側輸入、右側計算差額與送出，並保留盤點0單位批號隱藏、搜尋欄清空與主題分區規則。
 -->
 <html>
 <head>
@@ -592,10 +592,55 @@ tr.editing .dictGtinScanBtn{
   margin-top:0;
 }
 
+.inventorySectionTitle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:8px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:linear-gradient(90deg,rgba(37,99,235,.10),rgba(37,99,235,.02));
+  color:#1d4ed8;
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:.04em;
+}
+
+.inventorySectionTitle:first-child{
+  margin-top:0;
+}
+
+.inventorySectionTitle::before{
+  content:'';
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:var(--primary);
+  box-shadow:0 0 0 4px rgba(37,99,235,.12);
+}
+
+#inventoryDetailPanel .inventorySectionField{
+  border-left-width:4px;
+}
+
+#inventoryDetailPanel .inventorySectionMaster{ border-left-color:#2563eb; }
+#inventoryDetailPanel .inventorySectionLot{ border-left-color:#0f766e; }
+#inventoryDetailPanel .inventorySectionStock{ border-left-color:#7c3aed; }
+#inventoryDetailPanel .inventorySectionAction{ border-left-color:#ea580c; }
+
+.inventorySubmitCard{
+  justify-content:flex-end;
+}
+
+.inventorySubmitCard button + button{
+  margin-top:6px;
+}
+
 #inventoryDetailPanel .inventoryField{
   min-width:0;
   padding:10px;
   border:1px solid #e2e8f0;
+  border-left:4px solid #cbd5e1;
   border-radius:10px;
   background:#ffffff;
 }
@@ -614,6 +659,180 @@ tr.editing .dictGtinScanBtn{
 #inventoryDetailPanel .readonlyValue{
   min-height:30px;
   padding:4px 0 0;
+}
+
+
+/* 庫存作業明細：主題分區版。標題不再占用一格，避免畫面變成無意義卡片堆疊。 */
+#inventoryDetailPanel .inventoryDetailGrid{
+  display:none;
+}
+
+#inventoryDetailPanel .inventoryDetailSections{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:12px;
+  margin-top:0;
+}
+
+.inventorySectionCard{
+  min-width:0;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#ffffff;
+  box-shadow:0 8px 20px rgba(15,23,42,.04);
+  overflow:hidden;
+}
+
+.inventorySectionHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  min-height:44px;
+  padding:10px 12px;
+  border-bottom:1px solid #e2e8f0;
+  background:linear-gradient(90deg,rgba(37,99,235,.10),rgba(255,255,255,.65));
+}
+
+.inventorySectionHeader h3{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0;
+  color:#1d4ed8;
+  font-size:14px;
+  font-weight:950;
+  letter-spacing:.04em;
+}
+
+.inventorySectionHeader h3::before{
+  content:'';
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:var(--primary);
+  box-shadow:0 0 0 4px rgba(37,99,235,.12);
+}
+
+.inventorySectionBody{
+  display:grid;
+  gap:10px;
+  padding:12px;
+}
+
+.inventorySectionBodyMaster{
+  grid-template-columns:minmax(0,1.8fr) minmax(140px,.7fr);
+}
+
+.inventorySectionBodyLot,
+.inventorySectionBodyStock{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.inventorySectionBodyAction{
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:12px;
+  align-items:stretch;
+}
+
+.inventoryActionColumn{
+  display:grid;
+  gap:10px;
+  min-width:0;
+}
+
+.inventoryActionInputColumn{
+  align-content:start;
+}
+
+.inventoryActionResultColumn{
+  align-content:stretch;
+}
+
+.inventoryActionResultColumn #inventoryFinalQtyField{
+  min-height:96px;
+}
+
+.inventoryActionResultColumn #inventoryFinalQtyText{
+  font-size:20px;
+  font-weight:950;
+}
+
+.inventoryActionResultColumn #inventorySubmitField{
+  min-height:96px;
+}
+
+.inventoryStocktakeLotCard{
+  grid-column:1 / -1;
+}
+
+.inventorySectionMasterCard{
+  grid-column:1 / -1;
+}
+
+.inventorySectionActionCard{
+  grid-column:1 / -1;
+}
+
+.inventorySectionLotCard .inventorySectionHeader{
+  background:linear-gradient(90deg,rgba(15,118,110,.12),rgba(255,255,255,.65));
+}
+.inventorySectionLotCard .inventorySectionHeader h3{ color:#0f766e; }
+.inventorySectionLotCard .inventorySectionHeader h3::before{
+  background:#0f766e;
+  box-shadow:0 0 0 4px rgba(15,118,110,.12);
+}
+
+.inventorySectionStockCard .inventorySectionHeader{
+  background:linear-gradient(90deg,rgba(124,58,237,.12),rgba(255,255,255,.65));
+}
+.inventorySectionStockCard .inventorySectionHeader h3{ color:#6d28d9; }
+.inventorySectionStockCard .inventorySectionHeader h3::before{
+  background:#7c3aed;
+  box-shadow:0 0 0 4px rgba(124,58,237,.12);
+}
+
+.inventorySectionActionCard .inventorySectionHeader{
+  background:linear-gradient(90deg,rgba(234,88,12,.12),rgba(255,255,255,.65));
+}
+.inventorySectionActionCard .inventorySectionHeader h3{ color:#c2410c; }
+.inventorySectionActionCard .inventorySectionHeader h3::before{
+  background:#ea580c;
+  box-shadow:0 0 0 4px rgba(234,88,12,.13);
+}
+
+#inventoryDetailPanel .inventorySectionBody .inventoryField{
+  min-width:0;
+  padding:10px;
+  border:1px solid #e2e8f0;
+  border-left:0;
+  border-radius:10px;
+  background:#ffffff;
+}
+
+#inventoryDetailPanel .inventorySectionBody .inventoryField label{
+  margin-bottom:2px;
+  color:#475569;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.02em;
+}
+
+#inventoryDetailPanel .inventorySectionBody .readonlyValue{
+  min-height:30px;
+  padding:4px 0 0;
+}
+
+.inventorySubmitCard{
+  justify-content:flex-end;
+}
+
+.inventorySubmitCard button{
+  width:100%;
+}
+
+.inventorySubmitCard button + button{
+  margin-top:6px;
 }
 
 .inventoryField{
@@ -985,6 +1204,16 @@ tr.editing .dictGtinScanBtn{
 @media(max-width:960px){
   .inventoryGrid{ grid-template-columns:1fr; }
   #inventoryDetailPanel .inventoryGrid{ grid-template-columns:1fr; }
+  #inventoryDetailPanel .inventorySectionTitle{ grid-column:1 / -1; }
+  #inventoryDetailPanel .inventoryDetailSections{ grid-template-columns:1fr; }
+  .inventorySectionBodyMaster,
+  .inventorySectionBodyLot,
+  .inventorySectionBodyStock,
+  .inventorySectionBodyAction{ grid-template-columns:1fr; }
+
+  .inventoryActionColumn{
+    grid-column:1 / -1;
+  }
 }
 
 /* 掃描視窗 */
@@ -1752,67 +1981,101 @@ function goHome(){
       <div>請先掃描或輸入 GTIN。系統會用敷料主檔帶出院內碼、名稱、規格與一盒數量。</div>
     </div>
 
-    <div class="inventoryGrid">
-      <div class="inventoryField full">
-        <div class="inventoryNameHeader">
-          <label>敷料名稱</label>
+    <div class="inventoryDetailSections">
+      <section class="inventorySectionCard inventorySectionMasterCard" aria-label="主檔資訊">
+        <div class="inventorySectionHeader">
+          <h3>主檔資訊</h3>
           <button id="inventoryInlineEditMasterBtn" type="button" class="inventoryInlineAction" onclick="openInventoryFullMasterEditDialog()">完整編輯主檔</button>
         </div>
-        <div id="inventoryDressingNameText" class="readonlyValue inventoryPrimaryText muted">尚未選擇敷料</div>
-        <input id="inventoryDressingName" type="hidden">
-      </div>
-      <div class="inventoryField">
-        <label>院內碼</label>
-        <div id="inventoryHospitalCodeText" class="readonlyValue muted">尚未選擇敷料</div>
-        <input id="inventoryHospitalCode" type="hidden">
-      </div>
-      <div class="inventoryField" id="inventoryLotField">
-        <label>批號</label>
-        <input id="inventoryLot" placeholder="沒有批號會自動建立批號" oninput="renderInventoryOperationMode()">
-      </div>
-      <div class="inventoryField" id="inventoryExpField">
-        <label>效期（如果不知道效期可以空白）</label>
-        <input id="inventoryExp" type="date" placeholder="如果不知道效期可以空白" title="如果不知道效期可以空白" onchange="renderInventoryOperationMode()">
-      </div>
-      <div class="inventoryField full" id="inventoryStocktakeLotSelectField" style="display:none;">
-        <label>盤點批號</label>
-        <select id="inventoryStocktakeLotSelect" onchange="applyInventoryStocktakeLotSelection()">
-        </select>
-      </div>
-      <div class="inventoryField">
-        <label id="inventoryCurrentQtyLabel">該批號目前數量</label>
-        <div id="inventoryCurrentQtyText" class="readonlyValue muted">尚未查詢</div>
-        <input id="inventoryCurrentQty" type="hidden">
-      </div>
-      <div class="inventoryField">
-        <label id="inventoryTotalQtyLabel">總庫存數量</label>
-        <div id="inventoryTotalQtyText" class="readonlyValue muted">尚未查詢</div>
-        <input id="inventoryTotalQty" type="hidden">
-      </div>
-      <div class="inventoryField" id="inventoryBoxQtyField" style="display:none;">
-        <label id="inventoryBoxQtyLabel">本次入庫盒數</label>
-        <input id="inventoryBoxQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 1" oninput="renderInventoryQuantityHint()">
-        <button id="inventoryBoxQtyMasterBtn" type="button" class="inventoryBoxQtyAction" onclick="openInventoryBoxQuantityDialog()">設定一盒數量</button>
-        <div id="inventoryBoxQtyHint" class="inventoryBoxQtyHint"></div>
-      </div>
-      <div class="inventoryField" id="inventoryActualBoxQtyField" style="display:none;">
-        <label id="inventoryActualBoxQtyLabel">實際盤點盒數</label>
-        <input id="inventoryActualBoxQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="一盒幾單位會由主檔帶入" oninput="renderInventoryQuantityHint()">
-      </div>
-      <div class="inventoryField" id="inventoryUnitQtyField">
-        <label id="inventoryUnitQtyLabel">本次入庫單位數</label>
-        <input id="inventoryUnitQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 1" oninput="renderInventoryQuantityHint()">
-      </div>
-      <div class="inventoryField" id="inventoryFinalQtyField">
-        <label id="inventoryFinalQtyLabel">實際增加庫存</label>
-        <div id="inventoryFinalQtyText" class="readonlyValue muted">尚未輸入</div>
-        <input id="inventoryFinalQty" type="hidden">
-      </div>
-      <div class="inventoryField" id="inventorySubmitField">
-        <label>&nbsp;</label>
-        <button id="inventorySubmitBtn" type="button" class="primary" onclick="submitInventoryOperationFromForm()">確認入庫</button>
-        <button id="inventoryCancelBtn" type="button" class="danger" onclick="cancelInventoryOperation()">取消入庫</button>
-      </div>
+        <div class="inventorySectionBody inventorySectionBodyMaster">
+          <div class="inventoryField inventorySectionField" id="inventoryNameField">
+            <label>敷料名稱</label>
+            <div id="inventoryDressingNameText" class="readonlyValue inventoryPrimaryText muted">尚未選擇敷料</div>
+            <input id="inventoryDressingName" type="hidden">
+          </div>
+          <div class="inventoryField inventorySectionField" id="inventoryHospitalCodeField">
+            <label>院內碼</label>
+            <div id="inventoryHospitalCodeText" class="readonlyValue muted">尚未選擇敷料</div>
+            <input id="inventoryHospitalCode" type="hidden">
+          </div>
+        </div>
+      </section>
+
+      <section class="inventorySectionCard inventorySectionLotCard" aria-label="敷料掃描內容">
+        <div class="inventorySectionHeader">
+          <h3>敷料掃描內容</h3>
+        </div>
+        <div class="inventorySectionBody inventorySectionBodyLot">
+          <div class="inventoryField inventorySectionField" id="inventoryLotField">
+            <label>批號</label>
+            <input id="inventoryLot" placeholder="沒有批號會自動建立批號" oninput="renderInventoryOperationMode()">
+          </div>
+          <div class="inventoryField inventorySectionField" id="inventoryExpField">
+            <label>效期（如果不知道效期可以空白）</label>
+            <input id="inventoryExp" type="date" placeholder="如果不知道效期可以空白" title="如果不知道效期可以空白" onchange="renderInventoryOperationMode()">
+          </div>
+          <div class="inventoryField inventorySectionField inventoryStocktakeLotCard" id="inventoryStocktakeLotSelectField" style="display:none;">
+            <label>盤點批號</label>
+            <select id="inventoryStocktakeLotSelect" onchange="applyInventoryStocktakeLotSelection()">
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="inventorySectionCard inventorySectionStockCard" aria-label="庫存現況">
+        <div class="inventorySectionHeader">
+          <h3>庫存現況</h3>
+        </div>
+        <div class="inventorySectionBody inventorySectionBodyStock">
+          <div class="inventoryField inventorySectionField">
+            <label id="inventoryCurrentQtyLabel">該批號目前數量</label>
+            <div id="inventoryCurrentQtyText" class="readonlyValue muted">尚未查詢</div>
+            <input id="inventoryCurrentQty" type="hidden">
+          </div>
+          <div class="inventoryField inventorySectionField">
+            <label id="inventoryTotalQtyLabel">總庫存數量</label>
+            <div id="inventoryTotalQtyText" class="readonlyValue muted">尚未查詢</div>
+            <input id="inventoryTotalQty" type="hidden">
+          </div>
+        </div>
+      </section>
+
+      <section class="inventorySectionCard inventorySectionActionCard" aria-label="本次作業">
+        <div class="inventorySectionHeader">
+          <h3 id="inventoryActionSectionTitle">本次新增</h3>
+        </div>
+        <div class="inventorySectionBody inventorySectionBodyAction">
+          <div class="inventoryActionColumn inventoryActionInputColumn" aria-label="本次作業輸入">
+            <div class="inventoryField inventorySectionField" id="inventoryBoxQtyField" style="display:none;">
+              <label id="inventoryBoxQtyLabel">本次入庫盒數</label>
+              <input id="inventoryBoxQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="入庫幾盒" oninput="renderInventoryQuantityHint()">
+              <button id="inventoryBoxQtyMasterBtn" type="button" class="inventoryBoxQtyAction" onclick="openInventoryBoxQuantityDialog()">設定一盒數量</button>
+              <div id="inventoryBoxQtyHint" class="inventoryBoxQtyHint"></div>
+            </div>
+            <div class="inventoryField inventorySectionField" id="inventoryActualBoxQtyField" style="display:none;">
+              <label id="inventoryActualBoxQtyLabel">實際盤點盒數</label>
+              <input id="inventoryActualBoxQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="一盒幾單位會由主檔帶入" oninput="renderInventoryQuantityHint()">
+            </div>
+            <div class="inventoryField inventorySectionField" id="inventoryUnitQtyField">
+              <label id="inventoryUnitQtyLabel">本次入庫單位數</label>
+              <input id="inventoryUnitQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="入庫幾單位" oninput="renderInventoryQuantityHint()">
+            </div>
+          </div>
+
+          <div class="inventoryActionColumn inventoryActionResultColumn" aria-label="本次作業結果與送出">
+            <div class="inventoryField inventorySectionField" id="inventoryFinalQtyField">
+              <label id="inventoryFinalQtyLabel">實際增加庫存</label>
+              <div id="inventoryFinalQtyText" class="readonlyValue muted">尚未輸入</div>
+              <input id="inventoryFinalQty" type="hidden">
+            </div>
+            <div class="inventoryField inventorySectionField inventorySubmitCard" id="inventorySubmitField">
+              <label>送出作業</label>
+              <button id="inventorySubmitBtn" type="button" class="primary" onclick="submitInventoryOperationFromForm()">確認入庫</button>
+              <button id="inventoryCancelBtn" type="button" class="danger" onclick="cancelInventoryOperation()">取消入庫</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -4016,7 +4279,7 @@ async function selectDressingSearchCandidate(context, item){
   hideSearchSuggestions(context);
 
   const input = document.getElementById(context === 'inventory' ? 'inventoryBarcodeInput' : 'dictBarcodeInput');
-  if(input){
+  if(input && context !== 'inventory'){
     input.value = [item.hospitalCode || '', item.dressingName || '', item.size || ''].filter(Boolean).join('｜');
   }
 
@@ -4027,6 +4290,7 @@ async function selectDressingSearchCandidate(context, item){
       packageType:'manual',
       unitQuantity:1
     }, {});
+    clearInventorySearchInput();
     return;
   }
 
@@ -6583,8 +6847,10 @@ function getInventoryStocktakeLotRows(){
   return (Array.isArray(inventoryCache) ? inventoryCache : [])
     .map(getInventoryRowItem)
     .filter(function(row){
+      const qty = Number(row.quantity || 0) || 0;
       return String(row.hospitalCode || '').trim() === hospitalCode &&
-        String(row.stockUnit || '').trim() === stockUnit;
+        String(row.stockUnit || '').trim() === stockUnit &&
+        qty > 0;
     })
     .sort(function(a, b){
       return String(a.exp || '').localeCompare(String(b.exp || '')) ||
@@ -6616,7 +6882,7 @@ function renderInventoryStocktakeLotSelect(){
   field.style.display = '';
 
   if(rows.length === 0){
-    select.innerHTML = '<option value="">此敷料在本庫存位置目前沒有可盤點批號；請改走入庫</option>';
+    select.innerHTML = '<option value="">此敷料在本庫存位置沒有大於 0 的可盤點批號；請改走入庫</option>';
     if(lotInput) lotInput.value = '';
     if(expInput) expInput.value = '';
     applyInventoryStocktakeLotSelection({ silent:true });
@@ -6943,6 +7209,13 @@ function renderInventoryOperationMode(){
   const stocktakeLotSelectField = document.getElementById('inventoryStocktakeLotSelectField');
   const lotInput = document.getElementById('inventoryLot');
   const expInput = document.getElementById('inventoryExp');
+  const unitInput = document.getElementById('inventoryUnitQty');
+  const actualBoxInput = document.getElementById('inventoryActualBoxQty');
+  const actionTitle = document.getElementById('inventoryActionSectionTitle');
+
+  if(actionTitle){
+    actionTitle.innerText = operationType === 'stocktake' ? '本次盤點' : (operationType === 'inbound' ? '本次新增' : '本次作業');
+  }
 
   if(operationType === 'query'){
     if(lotField) lotField.style.display = 'none';
@@ -7001,6 +7274,7 @@ function renderInventoryOperationMode(){
     }
 
     if(unitLabel) unitLabel.innerText = '實際盤點單位數';
+    if(unitInput) unitInput.placeholder = '盤點單位數';
     if(finalLabel) finalLabel.innerText = '盤點差額';
     if(submitBtn) submitBtn.innerText = '確認盤點';
     if(cancelBtn) cancelBtn.innerText = '取消盤點';
@@ -7035,6 +7309,8 @@ function renderInventoryOperationMode(){
     if(unitLabel){
       unitLabel.innerText = missingBoxQty ? '本次入庫單位數（可先填本盒實際數量）' : '本次入庫單位數';
     }
+    if(boxInput) boxInput.placeholder = '入庫幾盒';
+    if(unitInput) unitInput.placeholder = '入庫幾單位';
     if(finalLabel) finalLabel.innerText = '實際增加庫存';
     if(submitBtn) submitBtn.innerText = '確認入庫';
     if(cancelBtn) cancelBtn.innerText = '取消入庫';
@@ -7042,7 +7318,7 @@ function renderInventoryOperationMode(){
     // 入庫模式隱藏「實際盤點盒數」
     const actualBoxField = document.getElementById('inventoryActualBoxQtyField');
     if(actualBoxField) actualBoxField.style.display = 'none';
-    if(actualBoxInput) actualBoxInput.placeholder = '例如 1';
+    if(actualBoxInput) actualBoxInput.placeholder = '盤點幾盒';
     
     applyInventoryLotExpInputMode();
   }
@@ -7089,17 +7365,24 @@ function renderInventoryQuantityHint(){
     if(actualBoxInput){
       actualBoxInput.placeholder = boxQty > 0 ? ('一盒 ' + formatInventoryQty(boxQty) + ' 單位') : '需先設定一盒數量';
     }
+    if(unitInput){
+      unitInput.placeholder = '盤點單位數';
+    }
   } else {
     if(boxField){
       boxField.style.display = operationType === 'inbound' && (boxQty > 0 || missingBoxQty) ? '' : 'none';
     }
     if(boxInput){
       boxInput.style.display = operationType === 'inbound' && boxQty > 0 ? '' : 'none';
+      boxInput.placeholder = '入庫幾盒';
       boxInput.readOnly = false;
       boxInput.disabled = false;
       if(boxQty <= 0 || operationType !== 'inbound'){
         boxInput.value = '';
       }
+    }
+    if(unitInput){
+      unitInput.placeholder = operationType === 'inbound' ? '入庫幾單位' : '';
     }
     if(boxBtn){
       boxBtn.style.display = operationType === 'inbound' && missingBoxQty ? 'inline-flex' : 'none';
@@ -7111,7 +7394,7 @@ function renderInventoryQuantityHint(){
       actualBoxField.style.display = 'none';
     }
     if(actualBoxInput){
-      actualBoxInput.placeholder = '例如 1';
+      actualBoxInput.placeholder = '盤點幾盒';
     }
   }
 
@@ -7760,10 +8043,7 @@ async function openInventoryNewDressingDialog(options){
         closeInventoryMasterDialog();
         hideSearchSuggestions('inventory');
 
-        const input = document.getElementById('inventoryBarcodeInput');
-        if(input){
-          input.value = [savedItem.hospitalCode || '', savedItem.dressingName || '', savedItem.size || ''].filter(Boolean).join('｜');
-        }
+        clearInventorySearchInput();
 
         await fillInventoryFormFromLookup({
           data:savedItem,
@@ -8690,7 +8970,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.7-202606021813</span>
+      <span>v.2.27.7-202606021833</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
