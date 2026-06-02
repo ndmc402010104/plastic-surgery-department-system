@@ -19,8 +19,9 @@ body{
     radial-gradient(circle at top left,rgba(37,99,235,.1),transparent 30rem),
     linear-gradient(180deg,#fbfdff 0%,var(--bg) 100%);
   padding:118px 24px 82px;
-  max-width:760px;
-  margin:auto;
+  width:70vw;
+  max-width:none;
+  margin:0 auto;
 }
 
 .homeBtn{
@@ -209,6 +210,20 @@ input,select{
   background:var(--primary);
   color:white;
   border-color:var(--primary);
+}
+
+@media(min-width:1200px){
+  body{
+    padding-left:0;
+    padding-right:0;
+  }
+}
+
+@media(max-width:1199px){
+  body{
+    width:auto;
+    margin:0;
+  }
 }
 
 @media(max-width:640px){
@@ -1039,7 +1054,7 @@ function submitName(){
 
 <body>
 
-  <?!= include('共用設定檔/AppShell', { subtitle: '會議簽到', maxWidth: '760px', showCalendarSource: true }) ?>
+  <?!= include('共用設定檔/AppShell', { subtitle: '會議簽到', maxWidth: '1400px', showCalendarSource: true }) ?>
 
   <section class="pageHero">
     <p class="eyebrow">簽到表單</p>
