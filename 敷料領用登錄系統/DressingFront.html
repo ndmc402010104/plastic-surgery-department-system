@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
 <!--
 檔案位置：科室系統用戶端/DressingFront.html
-時間戳記：2026-06-02 08:40 UTC+8
-用途：敷料領用/建檔/庫存前端；調整搜尋候選顯示為「院內碼｜敷料名稱＋規格」與 GTIN/盒裝換算狀態，右側保留使用狀態，保留庫存 MVP 與批號明細。
+時間戳記：2026-06-02 08:46 UTC+8
+用途：敷料領用/建檔/庫存前端；修正搜尋候選 GTIN/盒裝換算顯示，盒數已設定時即顯示「1盒=N單位」，未設定且無盒裝GTIN時不再顯示「1盒=不適用」。
 -->
 <html>
 <head>
@@ -3072,22 +3072,52 @@ function hasSuggestValue(value){
   return String(value || '').trim() !== '';
 }
 
+function getDressingBoxQuantityForSuggest(item){
+  item = item || {};
+
+  const candidates = [
+    item.boxQuantity,
+    item.boxQty,
+    item.boxCount,
+    item.packageQuantity,
+    item.packQuantity,
+    item.unitQuantity,
+    item['一盒數量']
+  ];
+
+  for(let i = 0; i < candidates.length; i++){
+    const raw = String(candidates[i] || '').trim();
+    if(!raw){
+      continue;
+    }
+
+    const num = Number(raw);
+    if(Number.isFinite(num) && num > 0){
+      return raw;
+    }
+  }
+
+  return '';
+}
+
 function formatDressingPackMetaForSuggest(item){
   item = item || {};
   const hasSingleGtin = hasSuggestValue(item.singleGtin || item.gtin);
   const hasBoxGtin = hasSuggestValue(item.boxGtin);
-  const boxQuantity = String(item.boxQuantity || '').trim();
+  const boxQuantity = getDressingBoxQuantityForSuggest(item);
 
-  let boxQuantityText = '1盒=不適用';
-  if(hasBoxGtin){
-    boxQuantityText = boxQuantity ? ('1盒=' + boxQuantity + '單位') : '1盒=未設定';
+  const parts = [
+    '單包GTIN ' + (hasSingleGtin ? '✓' : '✗'),
+    '盒裝GTIN ' + (hasBoxGtin ? '✓' : '✗')
+  ];
+
+  if(boxQuantity){
+    parts.push('1盒=' + boxQuantity + '單位');
+  } else if(hasBoxGtin){
+    parts.push('1盒=未設定');
   }
 
-  return [
-    '單包GTIN ' + (hasSingleGtin ? '✓' : '✗'),
-    '盒裝GTIN ' + (hasBoxGtin ? '✓' : '✗'),
-    boxQuantityText
-  ].join('　');
+  return parts.join('　');
 }
 
 function renderSearchSuggestions(context, matches, query){
@@ -5557,7 +5587,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.4-202606020840</span>
+      <span>v.2.27.4-202606021009</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
