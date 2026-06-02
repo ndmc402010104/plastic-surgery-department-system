@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
 <!--
 檔案位置：科室系統用戶端/DressingFront.html
-時間戳記：2026-06-02 14:04 UTC+8
-用途：敷料領用/建檔/庫存前端；聚焦修正入庫頁面：主資料優先、掃描批號效期鎖定、盒裝未設定時以主檔按鈕取代盒數欄位。
+時間戳記：2026-06-02 14:17 UTC+8
+用途：敷料領用/建檔/庫存前端；聚焦修正入庫頁，修正新條碼切換完整敷料建檔流程，並讓未設定一盒數量的敷料保留本次入庫盒數欄位以按鈕設定。
 -->
 <html>
 <head>
@@ -1343,7 +1343,7 @@ function goHome(){
         <label id="inventoryBoxQtyLabel">本次入庫盒數</label>
         <input id="inventoryBoxQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 1" oninput="renderInventoryQuantityHint()">
         <button id="inventoryBoxQtyMasterBtn" type="button" class="inventoryBoxQtyAction" onclick="openInventoryBoxQuantityDialog()">設定一盒數量</button>
-        <div id="inventoryBoxQtyHint" class="inventoryBoxQtyHint">這筆盒裝 GTIN 尚未設定一盒幾單位；請先回寫主檔，或直接在「本次入庫單位數」輸入實際單位數。</div>
+        <div id="inventoryBoxQtyHint" class="inventoryBoxQtyHint">這筆盒裝 GTIN 尚未設定一盒幾單位；本欄先以按鈕取代盒數輸入框，設定完成後會回到可輸入本次入庫盒數。也可直接在「本次入庫單位數」輸入本盒實際數量。</div>
       </div>
       <div class="inventoryField" id="inventoryUnitQtyField">
         <label id="inventoryUnitQtyLabel">本次入庫單位數</label>
@@ -1475,6 +1475,7 @@ let dictLoaded = false;
 let draggedRow = null;
 let dictScanMemory = {};
 let cancelledDictScanKeys = {};
+let pendingInventoryPackageType = '';
 
 const DICT_TABLE_STATE = {
   mode:'closed', // closed | loading | clean | editing | adding | saving | deleting | refreshing | reordering | error
@@ -3416,7 +3417,7 @@ function renderSearchSuggestions(context, matches, query){
   box.querySelectorAll('.searchSuggestItem').forEach(function(btn){
     btn.onclick = function(){
       const index = Number(btn.dataset.index || 0);
-      selectDressingSearchCandidate(context, matches[index]);
+      selectDressingSearchCandidate(context, matches[index]).catch(function(error){ showNotice("選取敷料失敗：" + (error.message || error), "error", "選取錯誤"); });
     };
   });
 }
@@ -4492,7 +4493,7 @@ function reapplyScannedGtinToExistingRow(tr, scannedGtin, parsed){
   return true;
 }
 
-async function addDictRow(barcode, parsed){
+async function addDictRow(barcode, parsed, forcedTarget){
   const emptyRow = document.getElementById('dictEmptyRow');
   if(emptyRow) emptyRow.remove();
 
@@ -4577,7 +4578,7 @@ async function addDictRow(barcode, parsed){
 
   showNotice('', 'info', '新敷料');
 
-  const completed = await guideDictRowAfterScan(tr);
+  const completed = await guideDictRowAfterScan(tr, forcedTarget);
   if(completed === false){
     removePendingDictScanRow(
       tr,
@@ -5003,6 +5004,10 @@ async function handleBarcodeScanResult(barcode){
   }
 
   if(scannerMode === 'inventory'){
+    pendingInventoryPackageType =
+      sameGtin(gtin, TEST_HYDROCLEAN_CAVITY_BOX_CODE)
+        ? 'box'
+        : '';
     await handleInventoryBarcodeResult(barcode, parsed);
     return;
   }
@@ -5269,14 +5274,18 @@ function updateInventoryInlineMasterButton(){
 function isInventoryCurrentScanBoxWithoutBoxQuantity(){
   const state = inventoryLookupState || {};
   const item = state.item || {};
-  const parsed = state.parsed || {};
-  const boxQty = Number(item.boxQuantity || 0) || 0;
-  const scannedGtin = parsed.gtin || '';
-  const isBoxScan =
-    state.packageType === 'box' ||
-    (scannedGtin && sameGtin(scannedGtin, item.boxGtin || ''));
 
-  return getInventoryOperationType() === 'inbound' && isBoxScan && boxQty <= 0;
+  /*
+    入庫頁規則：
+    只要已選到敷料，而且主檔尚未設定「一盒數量」，
+    就保留「本次入庫盒數」這一格，但把輸入框改成「設定一盒數量」按鈕。
+    這不只限於盒裝掃描；手動搜尋到的敷料如果沒有一盒數量，也應該在同一位置提示補主檔。
+  */
+  const hasItem =
+    !!String(item.hospitalCode || item.dressingName || item.singleGtin || item.gtin || item.boxGtin || '').trim();
+  const boxQty = Number(item.boxQuantity || 0) || 0;
+
+  return getInventoryOperationType() === 'inbound' && hasItem && boxQty <= 0;
 }
 
 function applyInventoryLotExpInputMode(parsed){
@@ -6027,7 +6036,7 @@ function renderInventoryOperationMode(){
       boxHint.style.display = missingBoxQty ? 'block' : 'none';
     }
     if(boxLabel){
-      boxLabel.innerText = missingBoxQty ? '盒裝換算尚未設定' : '本次入庫盒數';
+      boxLabel.innerText = '本次入庫盒數';
     }
     if(unitLabel){
       unitLabel.innerText = missingBoxQty ? '本次入庫單位數（可先填本盒實際數量）' : '本次入庫單位數';
@@ -6107,10 +6116,28 @@ function getInventorySearchRawValue(){
   return String(input ? input.value : '').trim();
 }
 
-function openInventoryNewDressingDialogFromSearch(){
+function inferInventoryPendingPackageType(raw, parsed){
+  parsed = parsed || parseUDI(raw || '');
+  const gtin = normalizeGtinForCompare(parsed.gtin || raw || '');
+  const pending = pendingInventoryPackageType === 'box' ? 'box' : '';
+
+  pendingInventoryPackageType = '';
+
+  if(pending){
+    return pending;
+  }
+
+  if(gtin && sameGtin(gtin, TEST_HYDROCLEAN_CAVITY_BOX_CODE)){
+    return 'box';
+  }
+
+  return '';
+}
+
+async function openInventoryNewDressingDialogFromSearch(){
   const raw = getInventorySearchRawValue();
   const parsed = parseUDI(raw);
-  openInventoryNewDressingDialog({
+  await openInventoryNewDressingDialogFromUnknown({
     raw:raw,
     gtin:parsed.gtin || '',
     lot:parsed.lot || '',
@@ -6119,19 +6146,98 @@ function openInventoryNewDressingDialogFromSearch(){
   });
 }
 
+async function askInventoryUnknownDressingPrefill(options){
+  options = options || {};
+  const raw = String(options.raw || '').trim();
+  const gtin = String(options.gtin || '').replace(/[^0-9]/g, '').trim();
+  let packageType = inferInventoryPendingPackageType(raw, parseUDI(raw));
+  let prefillKind = '';
+
+  if(gtin){
+    const choices = packageType === 'box'
+      ? [
+          { label:'盒裝GTIN', value:'box' },
+          { label:'單包GTIN', value:'single' }
+        ]
+      : [
+          { label:'單包GTIN', value:'single' },
+          { label:'盒裝GTIN', value:'box' }
+        ];
+
+    const choice = await openAppDialog({
+      title:'新 GTIN 類型',
+      message:'這個 GTIN 目前不在敷料主檔中。\n請先確認它是單包條碼還是盒裝條碼，接著會開完整主檔畫面讓你總整理。',
+      input:false,
+      choices:choices,
+      cancelText:'取消'
+    });
+
+    if(choice === null || choice === false){
+      return null;
+    }
+
+    packageType = choice === 'box' ? 'box' : 'single';
+
+    return {
+      packageType:packageType,
+      prefillKind:'gtin'
+    };
+  }
+
+  if(/^\d+$/.test(raw)){
+    const choice = await openAppDialog({
+      title:'新增資料類型',
+      message:'你輸入的是純數字：' + raw + '\n請選擇它要先放在哪個欄位，接著會開完整主檔畫面確認。',
+      input:false,
+      choices:[
+        { label:'院內碼', value:'hospitalCode' },
+        { label:'敷料名稱', value:'dressingName' }
+      ],
+      cancelText:'取消'
+    });
+
+    if(choice === null || choice === false){
+      return null;
+    }
+
+    prefillKind = choice === 'dressingName' ? 'dressingName' : 'hospitalCode';
+  } else {
+    prefillKind = raw ? 'dressingName' : '';
+  }
+
+  return {
+    packageType:packageType || '',
+    prefillKind:prefillKind
+  };
+}
+
+async function openInventoryNewDressingDialogFromUnknown(options){
+  options = options || {};
+  const choice = await askInventoryUnknownDressingPrefill(options);
+  if(!choice){
+    showNotice('已取消建立新敷料，仍停留在庫存作業。', 'warning', '已取消');
+    return;
+  }
+
+  hideSearchSuggestions('inventory');
+  openInventoryNewDressingDialog(Object.assign({}, options, choice));
+}
+
 function guessInventoryNewDressingDefaults(options){
   options = options || {};
   const raw = String(options.raw || '').trim();
   const gtin = String(options.gtin || '').replace(/[^0-9]/g, '').trim();
   const parsed = parseUDI(raw);
-  const isGtinLike = !!gtin || !!parsed.gtin || /^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(raw.replace(/\s+/g, ''));
+  const finalGtin = gtin || parsed.gtin || '';
+  const packageType = options.packageType === 'box' ? 'box' : 'single';
+  const prefillKind = options.prefillKind || '';
 
   return {
-    hospitalCode:'',
-    dressingName:isGtinLike ? '' : raw,
+    hospitalCode:prefillKind === 'hospitalCode' ? raw : '',
+    dressingName:prefillKind === 'dressingName' ? raw : '',
     size:'',
-    singleGtin:gtin || parsed.gtin || '',
-    boxGtin:'',
+    singleGtin:packageType === 'box' ? '' : finalGtin,
+    boxGtin:packageType === 'box' ? finalGtin : '',
     boxQuantity:'',
     category:'',
     status:'使用中'
@@ -6141,11 +6247,12 @@ function guessInventoryNewDressingDefaults(options){
 async function openInventoryNewDressingDialog(options){
   options = options || {};
   const defaults = guessInventoryNewDressingDefaults(options);
-  const defaultGtin = String(options.gtin || defaults.singleGtin || '').replace(/[^0-9]/g, '').trim();
+  const defaultGtin = String(options.gtin || defaults.singleGtin || defaults.boxGtin || '').replace(/[^0-9]/g, '').trim();
+  const packageType = options.packageType === 'box' ? 'box' : 'single';
 
   openInventoryMasterDialog({
-    title:'鍵入新敷料',
-    message:'目前主檔找不到符合資料。請先建立敷料主檔，完成後會自動回到目前庫存作業。',
+    title:'完整建立敷料主檔',
+    message:'目前主檔找不到符合資料。請在這裡總整理主檔內容，儲存後會回到目前庫存作業繼續入庫。',
     bodyHtml:`
       <div class="inventoryMasterMiniGrid">
         <label>院內碼
@@ -6159,13 +6266,13 @@ async function openInventoryNewDressingDialog(options){
         </label>
         <label>單包GTIN
           <div class="dictGtinInputGroup">
-            <input id="inventoryNewSingleGtin" type="number" inputmode="numeric" value="${escapeHtml(defaultGtin)}" placeholder="可手動輸入或掃描">
+            <input id="inventoryNewSingleGtin" type="number" inputmode="numeric" value="${escapeHtml(defaults.singleGtin || '')}" placeholder="可手動輸入或掃描">
             <button type="button" title="掃描單包GTIN" onclick="openInventoryNewGtinFieldScanner('inventoryNewSingleGtin')">📷</button>
           </div>
         </label>
         <label>盒裝GTIN
           <div class="dictGtinInputGroup">
-            <input id="inventoryNewBoxGtin" type="number" inputmode="numeric" value="" placeholder="可手動輸入或掃描">
+            <input id="inventoryNewBoxGtin" type="number" inputmode="numeric" value="${escapeHtml(defaults.boxGtin || '')}" placeholder="可手動輸入或掃描">
             <button type="button" title="掃描盒裝GTIN" onclick="openInventoryNewGtinFieldScanner('inventoryNewBoxGtin')">📷</button>
           </div>
         </label>
@@ -6246,7 +6353,7 @@ async function openInventoryNewDressingDialog(options){
         await fillInventoryFormFromLookup({
           data:savedItem,
           item:savedItem,
-          packageType:data.boxGtin && defaultGtin && sameGtin(data.boxGtin, defaultGtin) ? 'box' : 'manual',
+          packageType:data.boxGtin && defaultGtin && sameGtin(data.boxGtin, defaultGtin) ? 'box' : packageType,
           unitQuantity:Number(savedItem.boxQuantity || 1) || 1
         }, {
           raw:options.raw || '',
@@ -6271,125 +6378,37 @@ function openInventoryNewGtinFieldScanner(inputId){
 }
 
 async function ensureInventoryBoxQuantityForBoxScan(result, parsed){
+  // 入庫流程不在掃描當下跳出盒數設定對話框。
+  // 若掃到盒裝 GTIN 但主檔沒有一盒數量，畫面會在「本次入庫盒數」欄位下方顯示設定按鈕。
   result = result || {};
-  parsed = parsed || {};
-  const item = result.data || result.item || null;
-
-  if(!item){
-    return null;
-  }
-
-  const scannedGtin = parsed.gtin || '';
-  const isBoxScan =
-    result.packageType === 'box' ||
-    (scannedGtin && sameGtin(scannedGtin, item.boxGtin || ''));
-
-  if(!isBoxScan){
-    return item;
-  }
-
-  const currentBoxQty = Number(item.boxQuantity || 0);
-  if(Number.isFinite(currentBoxQty) && currentBoxQty > 0){
-    return item;
-  }
-
-  const method = await openAppDialog({
-    title:'盒裝數量未設定',
-    message:describeDressingItem(item) + '\n\n這次掃描看起來是盒裝GTIN，但主檔還沒有「一盒幾單位」。請選擇處理方式：',
-    input:false,
-    choices:[
-      { label:'設定一盒總數，並回寫敷料主檔', value:'master' },
-      { label:'只輸入這一盒實際敷料數量，不回寫主檔', value:'once' }
-    ],
-    cancelText:'取消'
-  });
-
-  if(method === null || method === false){
-    showNotice('已取消盒裝入庫；可先設定一盒數量後再入庫。', 'warning', '已取消');
-    return null;
-  }
-
-  const answer = await showInputDialog(
-    method === 'master' ? '設定一盒總數' : '輸入本盒敷料數量',
-    method === 'master'
-      ? '請輸入一盒包含幾個最小單位。系統會同步回寫敷料主檔。'
-      : '請輸入這次掃到的這一盒內實際敷料數量。這次會直接用該數量入庫，不會回寫一盒數量。',
-    ''
-  );
-
-  if(answer === null){
-    showNotice('已取消盒裝入庫。', 'warning', '已取消');
-    return null;
-  }
-
-  const boxQty = Number(String(answer || '').trim());
-  if(!Number.isFinite(boxQty) || boxQty <= 0){
-    showNotice('數量必須大於 0。', 'warning', '數量錯誤');
-    return null;
-  }
-
-  if(method === 'once'){
-    return Object.assign({}, item, {
-      __manualBoxUnitQuantity:String(boxQty)
-    });
-  }
-
-  const updatedItem = Object.assign({}, item, {
-    boxQuantity:String(boxQty),
-    boxGtin:item.boxGtin || scannedGtin
-  });
-
-  try{
-    const saveRes = await saveBarcode({
-      originalGtin:item.singleGtin || item.gtin || '',
-      originalBoxGtin:item.boxGtin || '',
-      hospitalCode:item.hospitalCode || '',
-      singleGtin:item.singleGtin || item.gtin || '',
-      gtin:item.singleGtin || item.gtin || '',
-      dressingName:item.dressingName || '',
-      size:item.size || '',
-      category:item.category || '',
-      boxGtin:updatedItem.boxGtin || '',
-      boxQuantity:String(boxQty),
-      status:item.status || '使用中'
-    });
-
-    if(!saveRes || !saveRes.ok){
-      throw new Error((saveRes && saveRes.message) || '一盒數量回寫失敗');
-    }
-
-    updateDressingMasterCacheItem(updatedItem);
-    showNotice('已回寫主檔：一盒 ' + boxQty + ' 單位', 'success', '盒裝數量已設定');
-  } catch(error){
-    showNotice('一盒數量回寫失敗：' + (error.message || error), 'error', '主檔更新失敗');
-    return null;
-  }
-
-  return updatedItem;
+  return result.data || result.item || null;
 }
 
 async function fillInventoryFormFromLookup(result, parsed){
   result = result || {};
   parsed = parsed || result.parsed || {};
   const item = result.data || result.item || null;
+  const packageType =
+    result.packageType ||
+    inferInventoryPendingPackageType(parsed.raw || parsed.gtin || '', parsed);
 
   if(!item || !item.hospitalCode){
     inventoryLookupState = null;
     renderInventoryLookupBox();
     updateInventoryInlineMasterButton();
     setInventoryPanelOpen('inventoryDetailPanel', false);
-    await openInventoryNewDressingDialog({
+    await openInventoryNewDressingDialogFromUnknown({
       gtin:parsed.gtin || '',
       raw:parsed.raw || '',
       lot:parsed.lot || '',
       exp:parsed.exp || '',
+      packageType:packageType,
       source:'scan'
     });
     return;
   }
 
   const boxQty = Number(item.boxQuantity || 0) || 0;
-  const packageType = result.packageType || '';
 
   inventoryLookupState = {
     item:item,
@@ -6495,6 +6514,7 @@ function triggerInventoryTest(type){
   const code = type === 'box'
     ? TEST_HYDROCLEAN_CAVITY_BOX_CODE
     : TEST_HYDROCLEAN_CAVITY_SINGLE_CODE;
+  pendingInventoryPackageType = type === 'box' ? 'box' : '';
   const input = document.getElementById('inventoryBarcodeInput');
   if(input) input.value = code;
   lookupInventoryFromInput();
@@ -7120,7 +7140,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.5-202606021405</span>
+      <span>v.2.27.5-202606021441</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
@@ -7137,6 +7157,9 @@ function normalizeTextForCompare(value){
 
 </body>
 </html>
+
+
+
 
 
 
