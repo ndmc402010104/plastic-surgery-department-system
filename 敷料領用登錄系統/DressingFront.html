@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
 <!--
 檔案位置：科室系統用戶端/DressingFront.html
-時間戳記：2026-06-02 11:45 UTC+8
-用途：敷料領用/建檔/庫存前端；新增庫存作業類型（入庫/盤點）前端切換、盤點差額計算與搜尋列輸入即時候選，保留搜尋候選 GTIN/盒裝換算顯示。
+時間戳記：2026-06-02 11:59 UTC+8
+用途：敷料領用/建檔/庫存前端；重整敷料庫存作業為「作業類型＋庫存位置」切換式流程，新增查詢敷料數量與不限制單位，搜尋區與作業表單採分段顯示，保留輸入即時搜尋。
 -->
 <html>
 <head>
@@ -516,6 +516,65 @@ tr.editing .dictGtinScanBtn{
 }
 
 .inventoryField.full{ grid-column:1 / -1; }
+
+.inventorySetupPanel{
+  margin-top:16px;
+  padding:16px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#f8fafc;
+}
+
+.inventorySetupGrid{
+  display:grid;
+  grid-template-columns:minmax(260px,1.2fr) minmax(260px,1.2fr) auto;
+  gap:14px;
+  align-items:end;
+}
+
+.inventoryStepPanel{
+  display:none;
+  margin-top:16px;
+}
+
+.inventoryStepPanel.is-open{
+  display:block;
+}
+
+.segmentedGroup{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.segmentedBtn{
+  border:1px solid #cbd5e1;
+  background:#ffffff;
+  color:#334155;
+  font-weight:800;
+  padding:9px 13px;
+}
+
+.segmentedBtn.active{
+  border-color:var(--primary);
+  background:rgba(37,99,235,.10);
+  color:#1d4ed8;
+  box-shadow:0 0 0 3px rgba(37,99,235,.10);
+}
+
+.inventorySetupHint{
+  margin-top:10px;
+  color:#64748b;
+  font-size:13px;
+  line-height:1.6;
+}
+
+@media(max-width:960px){
+  .inventorySetupGrid{
+    grid-template-columns:1fr;
+  }
+}
+
 
 .inventoryLookupBox{
   margin-top:14px;
@@ -1075,77 +1134,100 @@ function goHome(){
       <h2>敷料庫存作業</h2>
       <div id="inventoryLoadStatus" class="dictLoadStatus">尚未讀取批號庫存</div>
     </div>
-    <div class="dictToolbar">
+  </div>
+
+  <div class="inventorySetupPanel">
+    <div class="inventorySetupGrid">
+      <div class="inventoryField">
+        <label>作業類型</label>
+        <input id="inventoryOperationType" type="hidden" value="query">
+        <div class="segmentedGroup" role="group" aria-label="作業類型">
+          <button type="button" class="segmentedBtn" data-inventory-operation="inbound" onclick="setInventoryOperationType('inbound')">入庫</button>
+          <button type="button" class="segmentedBtn" data-inventory-operation="stocktake" onclick="setInventoryOperationType('stocktake')">盤點</button>
+          <button type="button" class="segmentedBtn active" data-inventory-operation="query" onclick="setInventoryOperationType('query')">查詢敷料數量</button>
+        </div>
+      </div>
+
+      <div class="inventoryField">
+        <label>庫存位置</label>
+        <input id="inventoryUnit" type="hidden" value="__ALL__">
+        <div class="segmentedGroup" role="group" aria-label="庫存位置">
+          <button type="button" class="segmentedBtn" data-inventory-unit="5A" onclick="setInventoryUnit('5A')">5A</button>
+          <button type="button" class="segmentedBtn" data-inventory-unit="傷口照護中心" onclick="setInventoryUnit('傷口照護中心')">傷口照護中心</button>
+          <button type="button" class="segmentedBtn active" data-inventory-unit="__ALL__" onclick="setInventoryUnit('__ALL__')">不限制單位</button>
+        </div>
+      </div>
+
+      <div class="inventoryField">
+        <label>&nbsp;</label>
+        <button type="button" class="primary" onclick="confirmInventorySetup()">確認作業條件</button>
+      </div>
+    </div>
+    <div id="inventorySetupHint" class="inventorySetupHint">
+      目前模式：查詢敷料數量／不限制單位。確認後開啟搜尋與掃描工具。
+    </div>
+  </div>
+
+  <div id="inventorySearchPanel" class="inventoryStepPanel">
+    <div class="inventoryGrid">
+      <div class="inventoryField full">
+        <label>搜尋 / 掃描內容</label>
+        <div class="dressingInputGroup">
+          <input id="inventoryBarcodeInput" placeholder="可輸入院內碼、敷料名稱、規格、GTIN，或貼上完整 GS1">
+          <button type="button" class="primary" onclick="lookupInventoryFromInput()">查詢</button>
+        </div>
+        <div id="inventorySearchSuggest" class="searchSuggestBox"></div>
+      </div>
+    </div>
+
+    <div class="dictToolbar" style="margin-top:12px;">
       <button type="button" class="primary" onclick="startInventoryScanner()">掃描入庫碼 📷</button>
       <button type="button" onclick="triggerInventoryTest('single')">測試單包碼</button>
       <button type="button" onclick="triggerInventoryTest('box')">測試盒裝碼</button>
-      <button type="button" onclick="loadInventoryList()">重新整理</button>
+      <button type="button" onclick="loadInventoryList(getInventoryCurrentListFilter())">重新整理</button>
     </div>
   </div>
 
-  <div class="inventoryGrid">
-    <div class="inventoryField">
-      <label>作業類型</label>
-      <select id="inventoryOperationType" onchange="renderInventoryOperationMode()">
-        <option value="inbound">入庫</option>
-        <option value="stocktake">盤點</option>
-      </select>
-    </div>
-
-    <div class="inventoryField full">
-      <label>搜尋 / 掃描內容</label>
-      <div class="dressingInputGroup">
-        <input id="inventoryBarcodeInput" placeholder="可輸入院內碼、敷料名稱、規格、GTIN，或貼上完整 GS1">
-        <button type="button" class="primary" onclick="lookupInventoryFromInput()">查詢</button>
+  <div id="inventoryDetailPanel" class="inventoryStepPanel">
+    <div class="inventoryGrid">
+      <div class="inventoryField">
+        <label>院內碼</label>
+        <input id="inventoryHospitalCode" readonly>
       </div>
-      <div id="inventorySearchSuggest" class="searchSuggestBox"></div>
+      <div class="inventoryField">
+        <label>批號</label>
+        <input id="inventoryLot" placeholder="入庫填實際批號；期初盤點可用 INITIAL" oninput="renderInventoryOperationMode()">
+      </div>
+      <div class="inventoryField">
+        <label>效期</label>
+        <input id="inventoryExp" type="date" onchange="renderInventoryOperationMode()">
+      </div>
+      <div class="inventoryField">
+        <label>系統目前數量</label>
+        <input id="inventoryCurrentQty" readonly>
+      </div>
+      <div class="inventoryField" id="inventoryBoxQtyField" style="display:none;">
+        <label id="inventoryBoxQtyLabel">本次入庫盒數</label>
+        <input id="inventoryBoxQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 1" oninput="renderInventoryQuantityHint()">
+      </div>
+      <div class="inventoryField" id="inventoryUnitQtyField">
+        <label id="inventoryUnitQtyLabel">本次入庫單位數</label>
+        <input id="inventoryUnitQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 1" oninput="renderInventoryQuantityHint()">
+      </div>
+      <div class="inventoryField" id="inventoryFinalQtyField">
+        <label id="inventoryFinalQtyLabel">實際增加庫存</label>
+        <input id="inventoryFinalQty" readonly>
+      </div>
+      <div class="inventoryField" id="inventorySubmitField">
+        <label>&nbsp;</label>
+        <button id="inventorySubmitBtn" type="button" class="primary" onclick="submitInventoryOperationFromForm()">確認入庫</button>
+      </div>
     </div>
 
-    <div class="inventoryField">
-      <label>院內碼</label>
-      <input id="inventoryHospitalCode" readonly>
+    <div id="inventoryLookupBox" class="inventoryLookupBox">
+      <div class="inventoryLookupTitle">尚未查詢敷料</div>
+      <div>請先掃描或輸入 GTIN。系統會用敷料主檔帶出院內碼、名稱、規格與一盒數量。</div>
     </div>
-    <div class="inventoryField">
-      <label>庫存位置</label>
-      <select id="inventoryUnit" onchange="renderInventoryOperationMode()">
-        <option value="">請選擇</option>
-        <option value="5A">5A</option>
-        <option value="傷口照護中心">傷口照護中心</option>
-      </select>
-    </div>
-    <div class="inventoryField">
-      <label>批號</label>
-      <input id="inventoryLot" placeholder="入庫填實際批號；期初盤點可用 INITIAL" oninput="renderInventoryOperationMode()">
-    </div>
-    <div class="inventoryField">
-      <label>效期</label>
-      <input id="inventoryExp" type="date" onchange="renderInventoryOperationMode()">
-    </div>
-    <div class="inventoryField">
-      <label>系統目前數量</label>
-      <input id="inventoryCurrentQty" readonly>
-    </div>
-    <div class="inventoryField" id="inventoryBoxQtyField" style="display:none;">
-      <label id="inventoryBoxQtyLabel">本次入庫盒數</label>
-      <input id="inventoryBoxQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 1" oninput="renderInventoryQuantityHint()">
-    </div>
-    <div class="inventoryField">
-      <label id="inventoryUnitQtyLabel">本次入庫單位數</label>
-      <input id="inventoryUnitQty" type="number" inputmode="decimal" min="0" step="0.01" placeholder="例如 1" oninput="renderInventoryQuantityHint()">
-    </div>
-    <div class="inventoryField">
-      <label id="inventoryFinalQtyLabel">實際增加庫存</label>
-      <input id="inventoryFinalQty" readonly>
-    </div>
-    <div class="inventoryField">
-      <label>&nbsp;</label>
-      <button id="inventorySubmitBtn" type="button" class="primary" onclick="submitInventoryOperationFromForm()">確認入庫</button>
-    </div>
-  </div>
-
-  <div id="inventoryLookupBox" class="inventoryLookupBox">
-    <div class="inventoryLookupTitle">尚未查詢敷料</div>
-    <div>請先掃描或輸入 GTIN。系統會用敷料主檔帶出院內碼、名稱、規格與一盒數量。</div>
   </div>
 
   <div class="inventoryTableWrap">
@@ -1154,7 +1236,7 @@ function goHome(){
         <tr>
           <th style="width:30%;">敷料</th>
           <th style="width:13%;">院內碼</th>
-          <th style="width:18%;">扣庫單位</th>
+          <th style="width:18%;">庫存位置</th>
           <th style="width:15%;">總庫存數量</th>
           <th>批號明細</th>
         </tr>
@@ -3217,7 +3299,7 @@ async function updateDressingSearchSuggestions(context){
   renderSearchSuggestions(context, matches, query);
 }
 
-function selectDressingSearchCandidate(context, item){
+async function selectDressingSearchCandidate(context, item){
   if(!item){
     return;
   }
@@ -3230,7 +3312,7 @@ function selectDressingSearchCandidate(context, item){
   }
 
   if(context === 'inventory'){
-    fillInventoryFormFromLookup({
+    await fillInventoryFormFromLookup({
       data:item,
       item:item,
       packageType:'manual',
@@ -3256,7 +3338,7 @@ async function searchOrSelectDressingFromInput(context){
   const matches = searchDressingMaster(query, 12);
 
   if(matches.length === 1){
-    selectDressingSearchCandidate(context, matches[0]);
+    await selectDressingSearchCandidate(context, matches[0]);
     return true;
   }
 
@@ -4890,7 +4972,10 @@ function openInventoryArea(){
   document.getElementById('formArea').style.display = 'none';
   document.getElementById('dictArea').style.display = 'none';
   document.getElementById('inventoryArea').style.display = 'block';
-  loadInventoryList();
+  updateInventorySegmentedButtons();
+  setInventoryPanelOpen('inventorySearchPanel', false);
+  setInventoryPanelOpen('inventoryDetailPanel', false);
+  loadInventoryList(getInventoryCurrentListFilter());
 }
 
 // Apps Script HtmlService 與 inline onclick 保險：明確掛到 window，避免按鈕找不到函式。
@@ -4944,16 +5029,160 @@ function calculateInventoryFinalQty(){
 
 function getInventoryOperationType(){
   const input = document.getElementById('inventoryOperationType');
-  return input && input.value === 'stocktake' ? 'stocktake' : 'inbound';
+  const value = input ? String(input.value || '').trim() : 'query';
+  return ['inbound','stocktake','query'].indexOf(value) >= 0 ? value : 'query';
+}
+
+function getInventoryOperationLabel(){
+  const type = getInventoryOperationType();
+  if(type === 'inbound') return '入庫';
+  if(type === 'stocktake') return '盤點';
+  return '查詢敷料數量';
+}
+
+function getInventoryUnitValue(){
+  const input = document.getElementById('inventoryUnit');
+  const value = input ? String(input.value || '').trim() : '__ALL__';
+  return value || '__ALL__';
+}
+
+function getInventoryUnitLabel(){
+  const unit = getInventoryUnitValue();
+  return unit === '__ALL__' ? '不限制單位' : unit;
+}
+
+function setInventoryOperationType(type){
+  type = ['inbound','stocktake','query'].indexOf(type) >= 0 ? type : 'query';
+  const input = document.getElementById('inventoryOperationType');
+  if(input) input.value = type;
+
+  if((type === 'inbound' || type === 'stocktake') && getInventoryUnitValue() === '__ALL__'){
+    setInventoryUnit('5A', { silent:true });
+  }
+
+  updateInventorySegmentedButtons();
+  resetInventoryAfterSetupChange();
+  renderInventoryOperationMode();
+}
+
+function setInventoryUnit(unit, options){
+  options = options || {};
+  unit = String(unit || '').trim() || '__ALL__';
+
+  if(unit === '__ALL__' && getInventoryOperationType() !== 'query'){
+    showNotice('入庫與盤點需要指定庫存位置，已保留目前作業設定', 'warning', '請選擇庫存位置');
+    unit = '5A';
+  }
+
+  const input = document.getElementById('inventoryUnit');
+  if(input) input.value = unit;
+
+  updateInventorySegmentedButtons();
+  if(!options.silent){
+    resetInventoryAfterSetupChange();
+    renderInventoryOperationMode();
+  }
+}
+
+function updateInventorySegmentedButtons(){
+  const operationType = getInventoryOperationType();
+  const unit = getInventoryUnitValue();
+
+  document.querySelectorAll('[data-inventory-operation]').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.inventoryOperation === operationType);
+  });
+
+  document.querySelectorAll('[data-inventory-unit]').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.inventoryUnit === unit);
+  });
+
+  const hint = document.getElementById('inventorySetupHint');
+  if(hint){
+    hint.innerText = '目前模式：' + getInventoryOperationLabel() + '／' + getInventoryUnitLabel() + '。確認後開啟搜尋與掃描工具。';
+  }
+}
+
+function setInventoryPanelOpen(panelId, isOpen){
+  const panel = document.getElementById(panelId);
+  if(panel){
+    panel.classList.toggle('is-open', !!isOpen);
+  }
+}
+
+function clearInventoryDetailForm(){
+  inventoryLookupState = null;
+
+  ['inventoryBarcodeInput','inventoryHospitalCode','inventoryLot','inventoryExp','inventoryCurrentQty','inventoryBoxQty','inventoryUnitQty','inventoryFinalQty'].forEach(function(id){
+    const el = document.getElementById(id);
+    if(el){
+      el.value = '';
+    }
+  });
+
+  hideSearchSuggestions('inventory');
+  renderInventoryLookupBox();
+}
+
+function resetInventoryAfterSetupChange(){
+  setInventoryPanelOpen('inventorySearchPanel', false);
+  setInventoryPanelOpen('inventoryDetailPanel', false);
+  clearInventoryDetailForm();
+
+  if(Array.isArray(inventoryCache) && inventoryCache.length > 0){
+    renderInventoryGroupedList(getInventoryCurrentListFilter());
+  }
+}
+
+function confirmInventorySetup(){
+  const type = getInventoryOperationType();
+  const unit = getInventoryUnitValue();
+
+  if((type === 'inbound' || type === 'stocktake') && unit === '__ALL__'){
+    showNotice('入庫與盤點需要指定庫存位置，不能使用不限制單位', 'warning', '請選擇庫存位置');
+    return;
+  }
+
+  setInventoryPanelOpen('inventorySearchPanel', true);
+  setInventoryPanelOpen('inventoryDetailPanel', false);
+  clearInventoryDetailForm();
+  renderInventoryOperationMode();
+  renderInventoryGroupedList(getInventoryCurrentListFilter());
+
+  const input = document.getElementById('inventoryBarcodeInput');
+  if(input){
+    setTimeout(function(){ input.focus(); }, 30);
+  }
+
+  showNotice('已設定：' + getInventoryOperationLabel() + '／' + getInventoryUnitLabel(), 'success', '作業條件已確認');
+}
+
+function getInventoryCurrentListFilter(extra){
+  extra = extra || {};
+  const filter = {};
+
+  const unit = getInventoryUnitValue();
+  if(unit && unit !== '__ALL__'){
+    filter.stockUnit = unit;
+  }
+
+  if(extra.hospitalCode){
+    filter.hospitalCode = String(extra.hospitalCode || '').trim();
+  }
+
+  return filter;
 }
 
 function getInventoryCurrentQtyForForm(){
   const hospitalCode = String(document.getElementById('inventoryHospitalCode') ? document.getElementById('inventoryHospitalCode').value : '').trim();
-  const stockUnit = String(document.getElementById('inventoryUnit') ? document.getElementById('inventoryUnit').value : '').trim();
+  const stockUnit = getInventoryUnitValue();
   const lot = String(document.getElementById('inventoryLot') ? document.getElementById('inventoryLot').value : '').trim();
   const exp = String(document.getElementById('inventoryExp') ? document.getElementById('inventoryExp').value : '').trim();
 
-  if(!hospitalCode || !stockUnit){
+  if(!hospitalCode){
+    return 0;
+  }
+
+  if((getInventoryOperationType() === 'inbound' || getInventoryOperationType() === 'stocktake') && stockUnit === '__ALL__'){
     return 0;
   }
 
@@ -4962,7 +5191,7 @@ function getInventoryCurrentQtyForForm(){
   return rows.reduce(function(sum, raw){
     const row = getInventoryRowItem(raw);
     const sameHospitalCode = String(row.hospitalCode || '').trim() === hospitalCode;
-    const sameStockUnit = String(row.stockUnit || '').trim() === stockUnit;
+    const sameStockUnit = stockUnit === '__ALL__' ? true : String(row.stockUnit || '').trim() === stockUnit;
     const sameLot = lot ? String(row.lot || '').trim() === lot : true;
     const sameExp = exp ? String(row.exp || '').trim() === exp : true;
 
@@ -4986,15 +5215,32 @@ function renderInventoryCurrentQty(){
 }
 
 function renderInventoryOperationMode(){
+  updateInventorySegmentedButtons();
+
   const operationType = getInventoryOperationType();
   const boxQty = getInventoryBoxQuantity();
   const boxField = document.getElementById('inventoryBoxQtyField');
   const boxLabel = document.getElementById('inventoryBoxQtyLabel');
+  const unitQtyField = document.getElementById('inventoryUnitQtyField');
+  const finalQtyField = document.getElementById('inventoryFinalQtyField');
+  const submitField = document.getElementById('inventorySubmitField');
   const unitLabel = document.getElementById('inventoryUnitQtyLabel');
   const finalLabel = document.getElementById('inventoryFinalQtyLabel');
   const submitBtn = document.getElementById('inventorySubmitBtn');
   const lotInput = document.getElementById('inventoryLot');
-  const expInput = document.getElementById('inventoryExp');
+
+  if(operationType === 'query'){
+    if(boxField) boxField.style.display = 'none';
+    if(unitQtyField) unitQtyField.style.display = 'none';
+    if(finalQtyField) finalQtyField.style.display = 'none';
+    if(submitField) submitField.style.display = 'none';
+    renderInventoryCurrentQty();
+    return;
+  }
+
+  if(unitQtyField) unitQtyField.style.display = '';
+  if(finalQtyField) finalQtyField.style.display = '';
+  if(submitField) submitField.style.display = '';
 
   if(operationType === 'stocktake'){
     if(boxField) boxField.style.display = 'none';
@@ -5034,11 +5280,16 @@ function renderInventoryQuantityHint(){
     boxField.style.display = (operationType === 'inbound' && boxQty > 0) ? '' : 'none';
   }
 
-  if((boxQty <= 0 || operationType === 'stocktake') && boxInput){
+  if((boxQty <= 0 || operationType !== 'inbound') && boxInput){
     boxInput.value = '';
   }
 
   if(!finalInput){
+    return;
+  }
+
+  if(operationType === 'query'){
+    finalInput.value = '';
     return;
   }
 
@@ -5190,10 +5441,12 @@ async function fillInventoryFormFromLookup(result, parsed){
 
   renderInventoryLookupBox();
   renderInventoryQuantityHint();
+  setInventoryPanelOpen('inventoryDetailPanel', true);
+
   if(Array.isArray(inventoryCache) && inventoryCache.length > 0){
-    renderInventoryGroupedList({ hospitalCode:String(item.hospitalCode || '').trim() });
+    renderInventoryGroupedList(getInventoryCurrentListFilter({ hospitalCode:String(item.hospitalCode || '').trim() }));
   }
-  showNotice('已帶入敷料主檔資料，庫存清單已彙總到商品層', 'success', '查詢成功');
+  showNotice('已帶入敷料主檔資料，庫存清單已依目前作業條件篩選', 'success', '查詢成功');
 }
 
 async function lookupInventoryFromInput(){
@@ -5253,8 +5506,13 @@ async function submitInventoryOperationFromForm(){
   const exp = String(document.getElementById('inventoryExp').value || '').trim();
   let lot = String(lotInput ? lotInput.value : '').trim();
 
+  if(operationType === 'query'){
+    showNotice('查詢模式不會異動庫存，請切換入庫或盤點後再送出。', 'warning', '查詢模式');
+    return;
+  }
+
   if(!hospitalCode){ showNotice('請先查詢敷料主檔', 'warning'); return; }
-  if(!stockUnit){ showNotice('請選擇庫存位置', 'warning'); return; }
+  if(!stockUnit || stockUnit === '__ALL__'){ showNotice('入庫與盤點需要指定庫存位置', 'warning'); return; }
 
   if(operationType === 'stocktake' && !lot){
     lot = 'INITIAL';
@@ -5321,7 +5579,7 @@ async function submitInventoryOperationFromForm(){
     if(boxInput) boxInput.value = '';
     if(unitInput) unitInput.value = '';
     renderInventoryQuantityHint();
-    await loadInventoryList({ hospitalCode:hospitalCode });
+    await loadInventoryList(getInventoryCurrentListFilter({ hospitalCode:hospitalCode }));
   } catch(error){
     showNotice(
       (operationType === 'stocktake' ? '盤點失敗：' : '入庫失敗：') + (error.message || error),
@@ -5352,11 +5610,16 @@ function getInventoryRowItem(row){
 function groupInventoryRows(rows, options){
   options = options || {};
   const filterHospitalCode = String(options.hospitalCode || '').trim();
+  const filterStockUnit = String(options.stockUnit || '').trim();
   const map = {};
 
   (Array.isArray(rows) ? rows : []).forEach(function(raw){
     const row = getInventoryRowItem(raw);
     if(filterHospitalCode && String(row.hospitalCode || '').trim() !== filterHospitalCode){
+      return;
+    }
+
+    if(filterStockUnit && String(row.stockUnit || '').trim() !== filterStockUnit){
       return;
     }
 
@@ -5389,7 +5652,6 @@ function groupInventoryRows(rows, options){
   });
 }
 
-
 function formatDressingDisplayName(item){
   item = item || {};
   const name = String(item.dressingName || '未命名敷料').trim();
@@ -5407,9 +5669,13 @@ function renderInventoryGroupedList(options){
   const tbody = document.getElementById('inventoryTbody');
   if(!tbody) return;
 
-  const groups = groupInventoryRows(inventoryCache, options || {});
+  options = options || {};
+  const groups = groupInventoryRows(inventoryCache, options);
   if(groups.length === 0){
-    const message = options && options.hospitalCode ? '這個敷料目前沒有批號庫存資料' : '目前沒有批號庫存資料';
+    const filters = [];
+    if(options.hospitalCode) filters.push('院內碼 ' + options.hospitalCode);
+    if(options.stockUnit) filters.push('庫存位置 ' + options.stockUnit);
+    const message = filters.length ? '目前沒有符合「' + filters.join('／') + '」的批號庫存資料' : '目前沒有批號庫存資料';
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">' + escapeHtml(message) + '</td></tr>';
     setInventoryStatus(message);
     return;
@@ -5447,7 +5713,10 @@ function renderInventoryGroupedList(options){
     `;
   }).join('');
 
-  const filterText = options && options.hospitalCode ? '；目前只顯示院內碼 ' + options.hospitalCode : '';
+  const filters = [];
+  if(options.hospitalCode) filters.push('院內碼 ' + options.hospitalCode);
+  if(options.stockUnit) filters.push('庫存位置 ' + options.stockUnit);
+  const filterText = filters.length ? '；目前只顯示 ' + filters.join('／') : '';
   setInventoryStatus('已彙總 ' + groups.length + ' 筆商品/單位庫存' + filterText);
 }
 
@@ -5814,7 +6083,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.5-202606021221</span>
+      <span>v.2.27.5-202606021222</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
@@ -5831,6 +6100,7 @@ function normalizeTextForCompare(value){
 
 </body>
 </html>
+
 
 
 
