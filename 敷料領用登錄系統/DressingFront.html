@@ -837,6 +837,27 @@ tr.editing .dictGtinScanBtn{
   display:block;
 }
 
+.inventoryStepPanel.is-loading{
+  opacity:.62;
+  pointer-events:none;
+}
+
+.inventorySearchLoadingHint{
+  display:none;
+  margin-top:10px;
+  padding:10px 12px;
+  border:1px solid #bfdbfe;
+  border-radius:10px;
+  background:#eff6ff;
+  color:#1e3a8a;
+  font-size:13px;
+  font-weight:900;
+}
+
+.inventorySearchLoadingHint.is-open{
+  display:block;
+}
+
 .segmentedGroup{
   display:flex;
   flex-wrap:wrap;
@@ -1986,6 +2007,7 @@ function goHome(){
           <input id="inventoryBarcodeInput" placeholder="可輸入院內碼、敷料名稱、規格、GTIN，或貼上完整 GS1">
         </div>
         <div id="inventorySearchSuggest" class="searchSuggestBox"></div>
+        <div id="inventorySearchLoadingHint" class="inventorySearchLoadingHint">正在同步敷料主檔與批號庫存，完成後才能搜尋或掃描。</div>
       </div>
     </div>
 
@@ -5970,6 +5992,8 @@ let pendingInventoryMasterGtinTarget = '';
 let inventoryOperationDirty = false;
 let inventoryBusy = false;
 let inventoryScannerBusy = false;
+let inventoryListReady = false;
+let inventoryListLoading = false;
 let inventoryOperationChoiceMade = false;
 let inventoryUnitChoiceMade = false;
 let inventoryInboundRedirectAutoCreateRaw = '';
@@ -5984,8 +6008,9 @@ function openInventoryArea(){
   inventoryOperationDirty = false;
   clearInventorySearchInput();
   clearInventoryDetailForm();
-  setInventoryPanelOpen('inventorySearchPanel', canShowInventorySearchPanel());
+  setInventoryPanelOpen('inventorySearchPanel', false);
   setInventoryPanelOpen('inventoryDetailPanel', false);
+  updateInventorySearchLoadingHint();
   loadInventoryList(getInventoryCurrentListFilter());
 }
 
@@ -6518,7 +6543,7 @@ function getInventoryUnitLabel(){
   return unit === '__ALL__' ? '不限制單位' : unit;
 }
 
-function canShowInventorySearchPanel(){
+function canInventorySetupAllowSearch(){
   const operationType = getInventoryOperationType();
   const unit = getInventoryUnitValue();
   if(!inventoryOperationChoiceMade || !inventoryUnitChoiceMade){
@@ -6526,6 +6551,27 @@ function canShowInventorySearchPanel(){
   }
 
   return operationType === 'query' || unit !== '__ALL__';
+}
+
+function canShowInventorySearchPanel(){
+  return inventoryListReady && !inventoryListLoading && canInventorySetupAllowSearch();
+}
+
+function updateInventorySearchLoadingHint(){
+  const hint = document.getElementById('inventorySearchLoadingHint');
+  const panel = document.getElementById('inventorySearchPanel');
+  const showLoading = !!inventoryListLoading;
+
+  if(hint){
+    hint.classList.toggle('is-open', showLoading);
+    hint.innerText = showLoading
+      ? '正在同步敷料主檔與批號庫存，完成後才能搜尋或掃描。'
+      : '';
+  }
+
+  if(panel){
+    panel.classList.toggle('is-loading', showLoading);
+  }
 }
 
 function setInventoryBusy(isBusy, message){
@@ -6547,7 +6593,8 @@ function setInventoryBusy(isBusy, message){
 }
 
 function syncInventoryControlDisabledState(){
-  const shouldDisable = inventoryBusy || inventoryScannerBusy;
+  const isActionBusy = inventoryBusy || inventoryScannerBusy;
+  const isDataGateClosed = inventoryListLoading || !inventoryListReady;
 
   document.querySelectorAll('#inventoryArea button, #inventoryArea input, #inventoryArea select').forEach(function(el){
     if(el.id === 'inventoryOperationType' || el.id === 'inventoryUnit'){
@@ -6558,7 +6605,12 @@ function syncInventoryControlDisabledState(){
       return;
     }
 
-    el.disabled = !!shouldDisable;
+    if(isDataGateClosed && el.closest('.inventorySetupPanel')){
+      el.disabled = false;
+      return;
+    }
+
+    el.disabled = !!(isActionBusy || isDataGateClosed);
   });
 }
 
@@ -6702,6 +6754,7 @@ function updateInventorySegmentedButtons(){
   const operationType = getInventoryOperationType();
   const unit = getInventoryUnitValue();
   const searchReady = canShowInventorySearchPanel();
+  const setupAllowsSearch = canInventorySetupAllowSearch();
 
   document.querySelectorAll('[data-inventory-operation]').forEach(function(btn){
     btn.classList.toggle('active', inventoryOperationChoiceMade && btn.dataset.inventoryOperation === operationType);
@@ -6721,6 +6774,10 @@ function updateInventorySegmentedButtons(){
       nextHint = '已選擇作業類型，請再選擇庫存位置。';
     } else if(!inventoryOperationChoiceMade && inventoryUnitChoiceMade){
       nextHint = '已選擇庫存位置，請再選擇作業類型。';
+    } else if(inventoryOperationChoiceMade && inventoryUnitChoiceMade && inventoryListLoading){
+      nextHint = '正在同步敷料主檔與批號庫存，完成後才會開放搜尋 / 掃描列。';
+    } else if(inventoryOperationChoiceMade && inventoryUnitChoiceMade && !inventoryListReady && setupAllowsSearch){
+      nextHint = '庫存清單尚未讀取完成，先不要搜尋或掃描，避免用空資料誤判。';
     } else if(inventoryOperationChoiceMade && inventoryUnitChoiceMade && !searchReady){
       nextHint = '入庫與盤點需要指定 5A 或傷口照護中心，不能使用不限制單位。';
     } else if(searchReady){
@@ -6737,6 +6794,9 @@ function setInventoryPanelOpen(panelId, isOpen){
   const panel = document.getElementById(panelId);
   if(panel){
     panel.classList.toggle('is-open', !!isOpen);
+  }
+  if(panelId === 'inventorySearchPanel'){
+    updateInventorySearchLoadingHint();
   }
 }
 
@@ -8174,6 +8234,11 @@ async function fillInventoryFormFromLookup(result, parsed){
 }
 
 async function lookupInventoryFromInput(){
+  if(!inventoryListReady || inventoryListLoading){
+    showNotice('庫存與敷料主檔尚未讀取完成，請等表格載入完成後再搜尋或掃描。', 'warning', '尚未載入完成');
+    return;
+  }
+
   const input = document.getElementById('inventoryBarcodeInput');
   const raw = String(input ? input.value : '').trim();
   if(!raw){
@@ -8264,6 +8329,11 @@ async function handleInventoryBarcodeResult(barcode, parsed){
 }
 
 function startInventoryScanner(){
+  if(!inventoryListReady || inventoryListLoading){
+    showNotice('庫存與敷料主檔尚未讀取完成，請等表格載入完成後再掃描。', 'warning', '尚未載入完成');
+    return;
+  }
+
   if(inventoryBusy || inventoryScannerBusy){
     return;
   }
@@ -8276,6 +8346,11 @@ function startInventoryScanner(){
 }
 
 function triggerInventoryTest(type){
+  if(!inventoryListReady || inventoryListLoading){
+    showNotice('庫存與敷料主檔尚未讀取完成，請等表格載入完成後再測試。', 'warning', '尚未載入完成');
+    return;
+  }
+
   const code = type === 'box'
     ? TEST_HYDROCLEAN_CAVITY_BOX_CODE
     : TEST_HYDROCLEAN_CAVITY_SINGLE_CODE;
@@ -8580,6 +8655,14 @@ async function loadInventoryList(options){
   options = options || {};
   const tbody = document.getElementById('inventoryTbody');
   if(!tbody) return;
+  inventoryListReady = false;
+  inventoryListLoading = true;
+  setInventoryPanelOpen('inventorySearchPanel', false);
+  setInventoryPanelOpen('inventoryDetailPanel', false);
+  clearInventorySearchInput();
+  updateInventorySearchLoadingHint();
+  updateInventorySegmentedButtons();
+  syncInventoryControlDisabledState();
   setInventoryStatus('正在讀取敷料主檔與批號庫存...');
   tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">載入中...</td></tr>';
 
@@ -8598,11 +8681,25 @@ async function loadInventoryList(options){
     }
 
     inventoryCache = res.data || [];
+    inventoryListReady = true;
+    inventoryListLoading = false;
     renderInventoryGroupedList(options);
     renderInventoryOperationMode();
+    updateInventorySearchLoadingHint();
+    updateInventorySegmentedButtons();
+    setInventoryPanelOpen('inventorySearchPanel', canShowInventorySearchPanel());
+    syncInventoryControlDisabledState();
     setInventoryStatus('已讀取批號庫存' + (Array.isArray(dressingMasterCache) && dressingMasterCache.length ? '，並已連結敷料主檔' : '；敷料主檔尚未連結'));
+    if(canShowInventorySearchPanel()) focusInventorySearchInput();
   } catch(error){
+    inventoryListReady = false;
+    inventoryListLoading = false;
+    inventoryCache = [];
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#dc2626; padding:20px;">讀取失敗：' + escapeHtml(error.message || error) + '</td></tr>';
+    setInventoryPanelOpen('inventorySearchPanel', false);
+    updateInventorySearchLoadingHint();
+    updateInventorySegmentedButtons();
+    syncInventoryControlDisabledState();
     setInventoryStatus('批號庫存讀取失敗');
   }
 }
@@ -8952,7 +9049,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.7-202606022305</span>
+      <span>v.2.27.7-202606022319</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
