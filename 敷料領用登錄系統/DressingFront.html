@@ -6925,14 +6925,19 @@ async function runInventoryNewGtinGuidedMasterFlow(options){
 
 async function openInventoryNewDressingDialogFromUnknown(options){
   options = options || {};
+  if(inventoryBusy){
+    setInventoryBusy(false, '進入新敷料建立流程');
+  }
+
   const choice = await askInventoryUnknownDressingPrefill(options);
   if(!choice){
     showNotice('已取消建立新敷料，仍停留在庫存作業。', 'warning', '已取消');
-    return;
+    return false;
   }
 
   hideSearchSuggestions('inventory');
   openInventoryNewDressingDialog(Object.assign({}, options, choice));
+  return true;
 }
 
 function guessInventoryNewDressingDefaults(options){
@@ -7107,6 +7112,9 @@ async function fillInventoryFormFromLookup(result, parsed){
     renderInventoryLookupBox();
     updateInventoryInlineMasterButton();
     setInventoryPanelOpen('inventoryDetailPanel', false);
+    if(inventoryBusy){
+      setInventoryBusy(false, '進入新敷料建立流程');
+    }
     await openInventoryNewDressingDialogFromUnknown({
       gtin:parsed.gtin || '',
       raw:parsed.raw || '',
@@ -7199,11 +7207,14 @@ async function lookupInventoryFromInput(){
 
   try{
     const res = await lookupBarcode(parsed.gtin);
+    setInventoryBusy(false, '查詢完成');
     await fillInventoryFormFromLookup(res, parsed);
   } catch(error){
     showNotice('查詢失敗：' + (error.message || error), 'error', '查詢錯誤');
   } finally {
-    setInventoryBusy(false, '查詢完成');
+    if(inventoryBusy){
+      setInventoryBusy(false, '查詢完成');
+    }
   }
 }
 
@@ -7873,7 +7884,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.6-202606021517</span>
+      <span>v.2.27.6-202606021523</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
@@ -7890,6 +7901,7 @@ function normalizeTextForCompare(value){
 
 </body>
 </html>
+
 
 
 
