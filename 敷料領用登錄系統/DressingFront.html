@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
 <!--
 檔案位置：科室系統用戶端/DressingFront.html
-時間戳記：2026-06-02 13:38 UTC+8
-用途：敷料領用/建檔/庫存前端；切換庫存作業時完整清空搜尋與暫存狀態，查無主檔可直接從庫存流程建立新敷料，並將不可輸入欄位改為文字顯示。
+時間戳記：2026-06-02 13:44 UTC+8
+用途：敷料領用/建檔/庫存前端；修正盤點允許 0、盤點不觸發盒裝數量流程，並讓敷料查詢/建檔可銜接完整敷料建檔功能。
 -->
 <html>
 <head>
@@ -3411,7 +3411,7 @@ async function updateDressingSearchSuggestions(context){
   renderSearchSuggestions(context, matches, query);
 }
 
-async function selectDressingSearchCandidate(context, item){
+async async function selectDressingSearchCandidate(context, item){
   if(!item){
     return;
   }
@@ -5226,15 +5226,40 @@ function renderInventoryLookupBox(){
     <div>${escapeHtml(gtinText)}</div>
     ${parsed.lot ? '<div>掃描批號：' + escapeHtml(parsed.lot) + (getInventoryOperationType() === 'inbound' && parsed.exp ? '；效期：' + escapeHtml(parsed.exp) : '') + '</div>' : ''}
     <div class="inventoryMasterActions">
-      <button type="button" onclick="openInventoryBoxQuantityDialog()">修改一盒數量</button>
-      ${(!hasSingleGtin || !hasBoxGtin) ? '<button type="button" onclick="openInventoryAddGtinWorkflow()">新增GTIN</button>' : ''}
+      ${getInventoryOperationType() === 'stocktake' ? '' : '<button type="button" onclick="openInventoryBoxQuantityDialog()">修改一盒數量</button>'}
+      ${(getInventoryOperationType() !== 'stocktake' && (!hasSingleGtin || !hasBoxGtin)) ? '<button type="button" onclick="openInventoryAddGtinWorkflow()">新增GTIN</button>' : ''}
       <button type="button" onclick="openInventoryFullMasterEditDialog()">完整編輯主檔</button>
+      <button type="button" onclick="openInventoryFullDictFromInventory()">完整敷料建檔清單</button>
     </div>
   `;
 }
 
 function getInventoryMasterItem(){
   return inventoryLookupState && inventoryLookupState.item ? inventoryLookupState.item : null;
+}
+
+async function openInventoryFullDictFromInventory(){
+  const input = document.getElementById('dictBarcodeInput');
+  const item = getInventoryMasterItem();
+  const query = item
+    ? [item.hospitalCode || '', item.dressingName || '', item.size || ''].filter(Boolean).join(' ')
+    : getInventorySearchRawValue();
+
+  if(input){
+    input.value = query || '';
+  }
+
+  closeInventoryMasterDialog();
+  await openDressingDict();
+
+  if(input && query){
+    input.value = query;
+    try{
+      await updateDressingSearchSuggestions('dict');
+    } catch(error){
+      console.log('完整建檔清單搜尋提示更新失敗', error);
+    }
+  }
 }
 
 function closeInventoryMasterDialog(){
@@ -6049,6 +6074,13 @@ async function openInventoryNewDressingDialog(options){
         <label>自費價格
           <input id="inventoryNewCategory" type="number" inputmode="numeric" min="0" step="1" value="" placeholder="沒有可留空">
         </label>
+        <label>狀態
+          <select id="inventoryNewStatus">
+            <option value="使用中" selected>使用中</option>
+            <option value="試用">試用</option>
+            <option value="停用">停用</option>
+          </select>
+        </label>
       </div>
     `,
     okText:'建立敷料主檔',
@@ -6061,7 +6093,7 @@ async function openInventoryNewDressingDialog(options){
         boxGtin:String(document.getElementById('inventoryNewBoxGtin') ? document.getElementById('inventoryNewBoxGtin').value : '').replace(/[^0-9]/g, '').trim(),
         boxQuantity:String(document.getElementById('inventoryNewBoxQuantity') ? document.getElementById('inventoryNewBoxQuantity').value : '').trim(),
         category:String(document.getElementById('inventoryNewCategory') ? document.getElementById('inventoryNewCategory').value : '').trim(),
-        status:'使用中'
+        status:String(document.getElementById('inventoryNewStatus') ? document.getElementById('inventoryNewStatus').value : '使用中').trim() || '使用中'
       };
 
       if(!data.hospitalCode){
@@ -6254,12 +6286,14 @@ async function fillInventoryFormFromLookup(result, parsed){
     return;
   }
 
-  item = await ensureInventoryBoxQuantityForBoxScan(result, parsed);
-  if(!item){
-    inventoryLookupState = null;
-    renderInventoryLookupBox();
-    renderInventoryQuantityHint();
-    return;
+  if(getInventoryOperationType() === 'inbound'){
+    item = await ensureInventoryBoxQuantityForBoxScan(result, parsed);
+    if(!item){
+      inventoryLookupState = null;
+      renderInventoryLookupBox();
+      renderInventoryQuantityHint();
+      return;
+    }
   }
 
   const boxQty = Number(item.boxQuantity || 0) || 0;
@@ -6281,14 +6315,19 @@ async function fillInventoryFormFromLookup(result, parsed){
   const boxInput = document.getElementById('inventoryBoxQty');
   const unitInput = document.getElementById('inventoryUnitQty');
 
-  if(boxInput && !boxInput.value){
-    boxInput.value = (result.packageType === 'box' && boxQty > 0) ? '1' : '';
-  }
+  if(getInventoryOperationType() === 'stocktake'){
+    if(boxInput) boxInput.value = '';
+    if(unitInput) unitInput.value = '';
+  } else {
+    if(boxInput && !boxInput.value){
+      boxInput.value = (result.packageType === 'box' && boxQty > 0) ? '1' : '';
+    }
 
-  if(unitInput && !unitInput.value){
-    unitInput.value = manualBoxUnitQuantity > 0
-      ? String(manualBoxUnitQuantity)
-      : ((result.packageType === 'box' && boxQty > 0) ? '' : '1');
+    if(unitInput && !unitInput.value){
+      unitInput.value = manualBoxUnitQuantity > 0
+        ? String(manualBoxUnitQuantity)
+        : ((result.packageType === 'box' && boxQty > 0) ? '' : '1');
+    }
   }
 
   renderInventoryLookupBox();
@@ -6408,9 +6447,15 @@ async function submitInventoryOperationFromForm(){
   let successTitle = '';
 
   if(operationType === 'stocktake'){
-    const actualQty = Number(document.getElementById('inventoryUnitQty').value || 0);
+    const actualQtyRaw = String(document.getElementById('inventoryUnitQty') ? document.getElementById('inventoryUnitQty').value : '').trim();
+    if(actualQtyRaw === ''){
+      showNotice('請輸入實際盤點單位數；可以輸入 0。', 'warning', '盤點數量');
+      return;
+    }
+
+    const actualQty = Number(actualQtyRaw);
     if(!Number.isFinite(actualQty) || actualQty < 0){
-      showNotice('請輸入有效盤點數量', 'warning');
+      showNotice('請輸入有效盤點數量；可以輸入 0，但不能小於 0。', 'warning', '盤點數量');
       return;
     }
 
@@ -6975,7 +7020,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.5-202606021339</span>
+      <span>v.2.27.5-202606021346</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
