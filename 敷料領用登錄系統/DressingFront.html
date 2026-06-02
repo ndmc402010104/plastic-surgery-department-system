@@ -4088,13 +4088,13 @@ function ensureOptionContainsCurrentValue(values, currentValue){
 
   return list;
 }
-async function pickValueByPrompt(title, values, defaultValue){
+async function pickValueByPrompt(title, values, defaultValue, message){
   values = ensureOptionContainsCurrentValue(values || [], defaultValue);
 
   if(!values || values.length === 0){
     const val = await openAppDialog({
       title: title,
-      message: '目前沒有既有選項，請直接輸入：',
+      message: message || '目前沒有既有選項，請直接輸入：',
       input: true,
       defaultValue: defaultValue || '',
       okText: '確定',
@@ -4109,7 +4109,7 @@ async function pickValueByPrompt(title, values, defaultValue){
 
     const choice = await openAppDialog({
       title: title,
-      message: '請選擇現有項目，或點擊最下方「自行輸入...」：',
+      message: message || '請選擇現有項目，或點擊最下方「自行輸入...」：',
       input: false,
       choices: choices,
       cancelText: '取消'
@@ -4122,7 +4122,7 @@ async function pickValueByPrompt(title, values, defaultValue){
     if(choice === '__MANUAL_INPUT__'){
       const manualVal = await openAppDialog({
         title: title + ' (自行輸入)',
-        message: '請輸入內容：',
+        message: message || '請輸入內容：',
         input: true,
         defaultValue: defaultValue || '',
         okText: '確定',
@@ -6889,7 +6889,8 @@ async function runInventoryNewGtinGuidedMasterFlow(options){
   const size = await pickValueByPrompt(
     gtin ? '步驟 3：請選擇或輸入規格描述' : '步驟 3：規格描述',
     sizesForName,
-    ''
+    '',
+    '敷料名稱：' + name + '\n請選擇既有規格，或點擊最下方「自行輸入...」新增規格。'
   );
 
   if(size === null){
@@ -6996,7 +6997,7 @@ async function openInventoryNewDressingDialog(options){
     bodyHtml:`
       <div class="inventoryMasterMiniGrid">
         <label>院內碼
-          <input id="inventoryNewHospitalCode" type="text" value="${escapeHtml(defaults.hospitalCode)}" placeholder="例如 9590533 或 1EWF16">
+          <input id="inventoryNewHospitalCode" type="text" value="${escapeHtml(defaults.hospitalCode)}" placeholder="可留空；例如 9590533 或 1EWF16">
         </label>
         <label>敷料名稱
           <input id="inventoryNewDressingName" type="text" value="${escapeHtml(defaults.dressingName)}" placeholder="例如 Allevyn">
@@ -7042,13 +7043,13 @@ async function openInventoryNewDressingDialog(options){
         status:String(document.getElementById('inventoryNewStatus') ? document.getElementById('inventoryNewStatus').value : '使用中').trim() || '使用中'
       };
 
-      if(!data.hospitalCode){
-        showNotice('請輸入院內碼', 'warning', '欄位不足');
+      if(!data.dressingName){
+        showNotice('請輸入敷料名稱', 'warning', '欄位不足');
         return;
       }
 
-      if(!data.dressingName){
-        showNotice('請輸入敷料名稱', 'warning', '欄位不足');
+      if(!data.size && !data.hospitalCode && !data.singleGtin && !data.boxGtin){
+        showNotice('請至少輸入規格、院內碼、單包GTIN或盒裝GTIN其中一項', 'warning', '欄位不足');
         return;
       }
 
@@ -7907,7 +7908,7 @@ if (window.location.hostname.includes('github.io')) {
   ghFooter.innerHTML = `
     <div style="display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.1; color:#475569; background:rgba(255,255,255,.72); border:1px solid rgba(148,163,184,.45); border-radius:8px; padding:6px 8px;">
       <span style="font-weight:700; color:#1d4ed8;">GitHub 版</span>
-      <span>v.2.27.6-202606021534</span>
+      <span>v.2.27.6-202606021538</span>
     </div>
   `;
   document.body.appendChild(ghFooter);
@@ -7924,6 +7925,7 @@ function normalizeTextForCompare(value){
 
 </body>
 </html>
+
 
 
 
