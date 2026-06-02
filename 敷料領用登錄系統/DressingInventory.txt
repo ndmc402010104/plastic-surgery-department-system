@@ -1,6 +1,6 @@
 /**
  * 檔案位置：數據網頁&參考系統/DressingInventory.js
- * 時間戳記：2026-06-02 18:40 UTC+8
+ * 時間戳記：2026-06-02 18:55 UTC+8
  * 用途：敷料批號庫存 MVP 後端；讀取與寫入「批號庫存」Sheet，並同步寫入「庫存交易紀錄」。
  *
  * 對應前端：科室系統用戶端/DressingFront.html
@@ -96,7 +96,7 @@ function addDressingInventoryStock(payload) {
 
     if (!hospitalCode) throw new Error('缺少院內碼');
     if (!stockUnit) throw new Error('缺少扣庫單位');
-    if (!lot) lot = buildDressingInventoryAutoLot_(hospitalCode);
+    if (!lot) lot = operationType === '盤點' ? 'INITIAL' : buildDressingInventoryAutoLot_(hospitalCode);
     if (operationType === '入庫' && (!Number.isFinite(quantity) || quantity <= 0)) {
       throw new Error('入庫數量必須大於 0');
     }
@@ -116,6 +116,11 @@ function addDressingInventoryStock(payload) {
       const lastRow = sheet.getLastRow();
       let targetRow = 0;
       let oldQuantity = 0;
+      let matchingStocktakeRows = [];
+      let rollbackQuantityRows = [];
+      const isCoarseStocktake =
+        operationType === '盤點' &&
+        isDressingInventoryCoarseStocktake_(lot, exp);
 
       if (lastRow >= 2) {
         const values = sheet.getRange(2, 1, lastRow - 1, DRESSING_INVENTORY_HEADERS.length).getValues();
@@ -127,17 +132,41 @@ function addDressingInventoryStock(payload) {
           const rowLot = String(row[2] || '').trim();
           const rowExp = normalizeInventoryDateForClient_(row[3]);
 
-          if (
-            rowHospitalCode === hospitalCode &&
-            rowStockUnit === stockUnit &&
-            rowLot === lot &&
-            rowExp === exp
-          ) {
-            targetRow = i + 2;
-            oldQuantity = Number(row[4] || 0) || 0;
-            break;
+          if (isCoarseStocktake) {
+            if (rowHospitalCode === hospitalCode && rowStockUnit === stockUnit) {
+              matchingStocktakeRows.push({
+                rowNumber: i + 2,
+                lot: rowLot,
+                exp: rowExp,
+                quantity: Number(row[4] || 0) || 0
+              });
+              oldQuantity += Number(row[4] || 0) || 0;
+            }
+          } else {
+            if (
+              rowHospitalCode === hospitalCode &&
+              rowStockUnit === stockUnit &&
+              rowLot === lot &&
+              rowExp === exp
+            ) {
+              targetRow = i + 2;
+              oldQuantity = Number(row[4] || 0) || 0;
+              break;
+            }
           }
         }
+      }
+
+      if (isCoarseStocktake && matchingStocktakeRows.length > 0) {
+        const preferredRow = matchingStocktakeRows.find(function(row) {
+          return !isDressingInventoryCoarseStocktake_(row.lot, row.exp);
+        }) || matchingStocktakeRows[0];
+        targetRow = preferredRow.rowNumber;
+        rollbackQuantityRows = matchingStocktakeRows.map(function(row) {
+          return { rowNumber: row.rowNumber, quantity: row.quantity };
+        });
+      } else if (targetRow) {
+        rollbackQuantityRows = [{ rowNumber: targetRow, quantity: oldQuantity }];
       }
 
       const changeQuantity = operationType === '盤點'
@@ -149,7 +178,13 @@ function addDressingInventoryStock(payload) {
       let appendedInventoryRow = 0;
 
       if (targetRow) {
-        sheet.getRange(targetRow, 5).setValue(newQuantity);
+        if (isCoarseStocktake) {
+          matchingStocktakeRows.forEach(function(row) {
+            sheet.getRange(row.rowNumber, 5).setValue(row.rowNumber === targetRow ? newQuantity : 0);
+          });
+        } else {
+          sheet.getRange(targetRow, 5).setValue(newQuantity);
+        }
       } else {
         const appendRow = [hospitalCode, stockUnit, lot, exp, newQuantity];
         sheet.appendRow(appendRow);
@@ -175,8 +210,10 @@ function addDressingInventoryStock(payload) {
       } catch (transactionError) {
         if (appendedInventoryRow) {
           sheet.deleteRow(appendedInventoryRow);
-        } else if (targetRow) {
-          sheet.getRange(targetRow, 5).setValue(oldQuantity);
+        } else if (rollbackQuantityRows.length > 0) {
+          rollbackQuantityRows.forEach(function(row) {
+            sheet.getRange(row.rowNumber, 5).setValue(row.quantity);
+          });
         }
 
         throw new Error(
@@ -268,6 +305,12 @@ function normalizeDressingInventoryOperationType_(operationType) {
   const text = String(operationType || '').trim();
   if (text === 'stocktake' || text === '盤點') return '盤點';
   return '入庫';
+}
+
+function isDressingInventoryCoarseStocktake_(lot, exp) {
+  const lotText = String(lot || '').trim().toUpperCase();
+  const expText = String(exp || '').trim().toUpperCase();
+  return !lotText || lotText === 'INITIAL' || !expText || expText === 'INITIAL';
 }
 
 function resolveDressingInventorySingleGtin_(hospitalCode, singleGtin) {
