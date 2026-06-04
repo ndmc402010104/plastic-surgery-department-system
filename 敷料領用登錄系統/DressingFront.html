@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
 <!--
 檔案位置：科室系統用戶端/DressingFront.html
-時間戳記：2026-06-05 01:07 UTC+8
-用途：敷料領用/建檔/庫存前端；修正敷料查詢/建檔主清單為不橫拉的四欄總覽：狀態併入敷料名稱、庫存狀態合併顯示 5A/傷中小格，自費價格保留於主列，操作與批號明細收進展開明細。
+時間戳記：2026-06-05 01:32 UTC+8
+用途：敷料領用/建檔/庫存前端；修正敷料查詢/建檔主清單不橫拉，將查詢模式預設為不限制單位，庫存單位改為查詢結果篩選，並區分「未建庫＝無」與「已建庫但數量 0＝紅色 0」。
 -->
 <html>
 <head>
@@ -1653,6 +1653,44 @@ tr.editing select:not(.readonly):focus{
   color:#94a3b8;
 }
 
+.dictSummaryStockPill.is-zero{
+  border-color:#fecaca;
+  background:#fef2f2;
+  color:#b91c1c;
+}
+
+.dictStockFilterBar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:0 0 12px;
+  padding:10px 12px;
+  border:1px solid #dbe4ef;
+  border-radius:10px;
+  background:#f8fafc;
+}
+
+.dictStockFilterLabel{
+  color:#475569;
+  font-size:13px;
+  font-weight:900;
+}
+
+.dictStockFilterBtn{
+  min-height:32px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:900;
+}
+
+.dictStockFilterBtn.active{
+  border-color:#2563eb;
+  background:rgba(37,99,235,.10);
+  color:#1d4ed8;
+}
+
 .dictDetailActions{
   display:flex;
   justify-content:flex-end;
@@ -2094,6 +2132,16 @@ tr.editing select:not(.readonly):focus{
     font-weight:800;
   }
 
+  .dictStockFilterBar{
+    gap:6px;
+    padding:8px;
+  }
+
+  .dictStockFilterBtn{
+    flex:1 1 auto;
+    min-width:70px;
+  }
+
   .dictTableWrap{
     overflow-x:hidden;
   }
@@ -2426,7 +2474,7 @@ function openGithubHashRoute(){
         </div>
       </div>
 
-      <div class="inventoryField">
+      <div class="inventoryField inventoryUnitSetupField">
         <label>庫存位置</label>
         <input id="inventoryUnit" type="hidden" value="__ALL__">
         <div class="segmentedGroup" role="group" aria-label="庫存位置">
@@ -2618,6 +2666,14 @@ function openGithubHashRoute(){
       </div>
       <div id="dictSearchSuggest" class="searchSuggestBox"></div>
     </div>
+  </div>
+
+  <div class="dictStockFilterBar" aria-label="庫存單位篩選">
+    <span class="dictStockFilterLabel">庫存篩選</span>
+    <input id="dictStockFilter" type="hidden" value="__ALL__">
+    <button type="button" class="dictStockFilterBtn active" data-dict-stock-filter="__ALL__" onclick="setDictStockFilter('__ALL__')">全部</button>
+    <button type="button" class="dictStockFilterBtn" data-dict-stock-filter="5A" onclick="setDictStockFilter('5A')">5A 有建庫</button>
+    <button type="button" class="dictStockFilterBtn" data-dict-stock-filter="傷中" onclick="setDictStockFilter('傷中')">傷中有建庫</button>
   </div>
 
   <div class="dictTableWrap">
@@ -3160,6 +3216,13 @@ async function openDressingDict(){
   document.getElementById('formArea').style.display = 'none';
   document.getElementById('inventoryArea').style.display = 'block';
   document.getElementById('dictArea').style.display = 'block';
+  setInventoryUnitSilently('__ALL__');
+  inventoryUnitChoiceMade = false;
+  const dictFilterInput = document.getElementById('dictStockFilter');
+  if(dictFilterInput){
+    dictFilterInput.value = '__ALL__';
+  }
+  updateDictStockFilterButtons();
   if(!inventoryListReady && !inventoryListLoading){
     loadInventoryList(getInventoryCurrentListFilter());
   }
@@ -3184,8 +3247,15 @@ async function openInventoryDictAjax(){
   if(typeInput){
     typeInput.value = 'query';
   }
+  setInventoryUnitSilently('__ALL__');
   inventoryOperationChoiceMade = true;
+  inventoryUnitChoiceMade = false;
   inventoryOperationDirty = false;
+  const dictFilterInput = document.getElementById('dictStockFilter');
+  if(dictFilterInput){
+    dictFilterInput.value = '__ALL__';
+  }
+  updateDictStockFilterButtons();
   clearInventorySearchInput();
   clearInventoryDetailForm();
   setInventoryPanelOpen('inventorySearchPanel', false);
@@ -3223,6 +3293,87 @@ function makeStatusSelect(value){
   ).join('')}</select>`;
 }
 
+function getDictStockFilterValue(){
+  const input = document.getElementById('dictStockFilter');
+  return input ? String(input.value || '__ALL__').trim() || '__ALL__' : '__ALL__';
+}
+
+function normalizeDictStockFilterUnit(unit){
+  const text = String(unit || '').trim();
+  if(!text || text === '__ALL__'){
+    return '__ALL__';
+  }
+  return getInventoryDisplayUnitKey(text);
+}
+
+function updateDictStockFilterButtons(){
+  const value = getDictStockFilterValue();
+  document.querySelectorAll('[data-dict-stock-filter]').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.dictStockFilter === value);
+  });
+}
+
+function shouldShowDictItemForStockFilter(item){
+  const filter = normalizeDictStockFilterUnit(getDictStockFilterValue());
+  if(filter === '__ALL__'){
+    return true;
+  }
+
+  const hospitalCode = String(item && item.hospitalCode || '').trim();
+  const summary = getInventorySummaryForHospitalCode(hospitalCode);
+  return !!(summary && summary.unitHasRecord && summary.unitHasRecord[filter]);
+}
+
+function getFilteredDressingMasterCache(){
+  const cache = Array.isArray(dressingMasterCache) ? dressingMasterCache : [];
+  return cache.filter(shouldShowDictItemForStockFilter);
+}
+
+function renderDictListFromCache(){
+  const tbody = document.getElementById('dictTbody');
+  if(!tbody){
+    return;
+  }
+
+  const rows = getFilteredDressingMasterCache();
+  const filter = normalizeDictStockFilterUnit(getDictStockFilterValue());
+  tbody.innerHTML = '';
+
+  if(rows.length > 0){
+    rows.forEach(function(item){
+      tbody.appendChild(createDictRow(item, false));
+    });
+  } else {
+    const message = filter === '__ALL__'
+      ? '目前主檔無資料；可開啟掃描新增第一筆'
+      : '目前沒有「' + escapeHtml(filter) + '」已建庫的敷料；可切回全部查看主檔';
+    tbody.innerHTML =
+      '<tr id="dictEmptyRow"><td colspan="4" style="text-align:center; color:#64748b; padding:20px;">' +
+      message +
+      '</td></tr>';
+  }
+
+  updateDictStockFilterButtons();
+  updateBatchSaveButtonVisibility();
+}
+
+function setDictStockFilter(unit){
+  const input = document.getElementById('dictStockFilter');
+  const next = normalizeDictStockFilterUnit(unit);
+  if(input){
+    input.value = next;
+  }
+
+  updateDictStockFilterButtons();
+  if(dictLoaded && Array.isArray(dressingMasterCache)){
+    renderDictListFromCache();
+    const total = dressingMasterCache.length;
+    const shown = getFilteredDressingMasterCache().length;
+    const label = next === '__ALL__' ? '全部敷料' : next + ' 已建庫';
+    setDictLoadState('ready', '已顯示 ' + shown + ' / ' + total + ' 筆：' + label);
+  }
+}
+
 async function loadDictList(){
   isReorderMode = false;
   document.getElementById('dictTable').classList.remove('reorder-mode');
@@ -3244,18 +3395,14 @@ async function loadDictList(){
     }
 
     dressingMasterCache = res.data || [];
-    tbody.innerHTML = '';
+    renderDictListFromCache();
 
+    const shownCount = getFilteredDressingMasterCache().length;
+    const filter = normalizeDictStockFilterUnit(getDictStockFilterValue());
     if(dressingMasterCache.length > 0){
-      dressingMasterCache.forEach(function(item){
-        tbody.appendChild(createDictRow(item, false));
-      });
-
-      setDictLoadState('ready', `已讀取 ${dressingMasterCache.length} 筆敷料資料，可以掃描或測試`);
+      const suffix = filter === '__ALL__' ? '' : '，目前篩選：' + filter + ' 已建庫，顯示 ' + shownCount + ' 筆';
+      setDictLoadState('ready', `已讀取 ${dressingMasterCache.length} 筆敷料資料${suffix}，可以掃描或測試`);
     } else {
-      tbody.innerHTML =
-        '<tr id="dictEmptyRow"><td colspan="4" style="text-align:center; color:#64748b; padding:20px;">目前主檔無資料；可開啟掃描新增第一筆</td></tr>';
-
       setDictLoadState('ready', '主檔目前無資料；可掃描或測試新增第一筆');
     }
   } catch(err){
@@ -3434,12 +3581,14 @@ function getInventorySummaryForHospitalCode(hospitalCode){
     });
 
   const unitTotals = {};
+  const unitHasRecord = {};
   let totalQty = 0;
 
   rows.forEach(function(row){
     const unit = getInventoryDisplayUnitKey(row.stockUnit);
     const qty = Number(row.quantity || 0) || 0;
     totalQty += qty;
+    unitHasRecord[unit] = true;
     unitTotals[unit] = (unitTotals[unit] || 0) + qty;
   });
 
@@ -3450,21 +3599,23 @@ function getInventorySummaryForHospitalCode(hospitalCode){
   return {
     rows:rows,
     unitTotals:unitTotals,
+    unitHasRecord:unitHasRecord,
     totalQty:totalQty,
     stockUnitText: units.length ? units.join('、') : '無庫存',
     totalQtyText: rows.length ? formatInventoryQty(totalQty) : '0'
   };
 }
 
-function setDictStockPill(el, label, qty){
+function setDictStockPill(el, label, qty, hasRecord){
   if(!el){
     return;
   }
 
   const value = Number(qty || 0) || 0;
-  const hasStock = value > 0;
-  const qtyText = hasStock ? formatInventoryQty(value) : '無';
-  const text = label + ' ' + qtyText;
+  const hasStock = hasRecord && value > 0;
+  const isZeroStock = hasRecord && value <= 0;
+  const qtyText = hasStock ? formatInventoryQty(value) : (isZeroStock ? '0' : '無');
+  const text = label + ' ' + qtyText + (isZeroStock ? '（已建庫但目前為 0）' : (!hasRecord ? '（未建庫）' : ''));
   const unitEl = el.querySelector('.dictSummaryStockUnit');
   const qtyEl = el.querySelector('.dictSummaryStockQty');
 
@@ -3480,7 +3631,8 @@ function setDictStockPill(el, label, qty){
 
   el.title = text;
   el.classList.toggle('is-active', hasStock);
-  el.classList.toggle('is-empty', !hasStock);
+  el.classList.toggle('is-zero', isZeroStock);
+  el.classList.toggle('is-empty', !hasRecord);
 }
 
 function renderDictRowLotDetails(tr, inventorySummary){
@@ -3530,6 +3682,11 @@ function renderDictRowLotDetails(tr, inventorySummary){
 }
 
 function refreshDictInventorySummaries(){
+  if(dictLoaded && normalizeDictStockFilterUnit(getDictStockFilterValue()) !== '__ALL__'){
+    renderDictListFromCache();
+    return;
+  }
+
   document.querySelectorAll('#dictTbody tr:not(#dictEmptyRow)').forEach(function(tr){
     syncDictRowSummary(tr);
   });
@@ -3546,8 +3703,8 @@ function syncDictRowSummary(tr){
 
   setDictSummaryText(tr.querySelector('.dict-summary-name-size'), nameSize);
   setDictSummaryText(tr.querySelector('.dict-summary-code'), data.hospitalCode);
-  setDictStockPill(tr.querySelector('.dict-summary-stock-5a'), '5A', inventorySummary.unitTotals && inventorySummary.unitTotals['5A']);
-  setDictStockPill(tr.querySelector('.dict-summary-stock-wound'), '傷中', inventorySummary.unitTotals && inventorySummary.unitTotals['傷中']);
+  setDictStockPill(tr.querySelector('.dict-summary-stock-5a'), '5A', inventorySummary.unitTotals && inventorySummary.unitTotals['5A'], inventorySummary.unitHasRecord && inventorySummary.unitHasRecord['5A']);
+  setDictStockPill(tr.querySelector('.dict-summary-stock-wound'), '傷中', inventorySummary.unitTotals && inventorySummary.unitTotals['傷中'], inventorySummary.unitHasRecord && inventorySummary.unitHasRecord['傷中']);
   setDictSummaryText(tr.querySelector('.dict-summary-category'), data.category);
   renderDictRowLotDetails(tr, inventorySummary);
 
@@ -7912,6 +8069,11 @@ function updateInventorySegmentedButtons(){
     btn.classList.toggle('active', inventoryOperationChoiceMade && btn.dataset.inventoryOperation === operationType);
   });
 
+  const unitSetupField = document.querySelector('.inventoryUnitSetupField');
+  if(unitSetupField){
+    unitSetupField.style.display = operationType === 'query' ? 'none' : '';
+  }
+
   document.querySelectorAll('[data-inventory-unit]').forEach(function(btn){
     const isAllUnit = btn.dataset.inventoryUnit === '__ALL__';
     btn.style.display = isAllUnit && operationType !== 'query' ? 'none' : '';
@@ -7922,7 +8084,9 @@ function updateInventorySegmentedButtons(){
   if(hint){
     let nextHint = '請先選擇作業類型與庫存位置，完成後才會出現搜尋 / 掃描列。';
 
-    if(inventoryOperationChoiceMade && !inventoryUnitChoiceMade){
+    if(operationType === 'query' && inventoryOperationChoiceMade){
+      nextHint = '敷料查詢預設不限制庫存位置；可在下方用「庫存篩選」只看 5A 或傷中已建庫的敷料。';
+    } else if(inventoryOperationChoiceMade && !inventoryUnitChoiceMade){
       nextHint = '已選擇作業類型，請再選擇庫存位置。';
     } else if(!inventoryOperationChoiceMade && inventoryUnitChoiceMade){
       nextHint = '已選擇庫存位置，請再選擇作業類型。';
