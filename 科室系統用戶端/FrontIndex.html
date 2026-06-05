@@ -241,6 +241,7 @@ const APP_ENV =
 const GITHUB_PAGE_MAP = {
   home: '',
   frontIndex: '科室系統用戶端/FrontIndex.html',
+  signMeeting: '科室系統用戶端/SignMeeting.html',
   signQR: '科室系統用戶端/SignQRGenerator.html',
   hospitalSignIn: '科室系統用戶端/HospitalSignIn.html',
   dressingFront: '敷料領用登錄系統/DressingFront.html',
@@ -249,10 +250,6 @@ const GITHUB_PAGE_MAP = {
   dressingDict: '敷料領用登錄系統/DressingFront.html#dressingDict',
   uiTest: '共用設定檔/UI設定/99_文件/skh-ui-test-page.html'
 };
-
-const GITHUB_PAGES_BASE_URL =
-'https://ndmc402010104.github.io/plastic-surgery-department-system/';
-
 
 function getGithubRepoBasePath(){
   if(!window.location.hostname.includes('github.io')){
@@ -280,7 +277,8 @@ function getGithubPageUrl(pageKey){
       path;
   }
 
-  return GITHUB_PAGES_BASE_URL +
+  return window.location.origin.replace(/\/+$/, '') +
+    '/' +
     path;
 
 }
@@ -455,7 +453,7 @@ function goDressingFront(){
   window.top.location.href =
     env === 'dev'
       ? buildAppPageUrl(APP_DEV_URL, 'dressingfront', 'dev')
-      : getGithubPageUrl('dressingFront');
+      : buildAppPageUrl(APP_PROD_URL, 'dressingfront', 'prod');
 
 }
 
@@ -578,47 +576,7 @@ if ((window.location.hostname.includes('github.io') || window.location.hostname 
     .appHeader{
       padding:0 var(--app-shell-gutter) !important;
     }
-    .appVersionFooter{
-      position:fixed;
-      left:0;
-      right:0;
-      bottom:0;
-      z-index:10000;
-      height:46px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:0 16px;
-      box-sizing:border-box;
-      background:rgba(248,251,255,.94);
-      border-top:1px solid rgba(148,163,184,.38);
-      box-shadow:0 -8px 24px rgba(15,23,42,.08);
-      backdrop-filter:blur(10px);
-    }
-
-    .appVersionBadge{
-      display:inline-flex;
-      align-items:center;
-      gap:5px;
-      min-height:28px;
-      padding:6px 10px;
-      border:1px solid transparent;
-      border-radius:999px;
-      background:transparent;
-      color:#64748b;
-      font-size:11px;
-      font-weight:800;
-      line-height:1.1;
-      text-decoration:none;
-      white-space:nowrap;
-      cursor:default;
-    }.appVersionBadge.is-active{
-      color:#ffffff;
-      background:linear-gradient(135deg,#2563eb,#0f766e);
-      border-color:transparent;
-      box-shadow:0 8px 18px rgba(37,99,235,.20);
-    }
-    .appVersionBadgeMode{ font-weight:900; }.appVersionText{ font-weight:800; opacity:.9; }@media(min-width:1200px){
+    @media(min-width:1200px){
       .shell,
       .wrap,
       .container,
@@ -656,6 +614,7 @@ if ((window.location.hostname.includes('github.io') || window.location.hostname 
   footerScript.src = window.location.hostname.includes('github.io')
     ? 'https://ndmc402010104.github.io/plastic-surgery-department-system/%E5%85%B1%E7%94%A8%E8%A8%AD%E5%AE%9A%E6%AA%94/EnvironmentFooter.js'
     : '/%E5%85%B1%E7%94%A8%E8%A8%AD%E5%AE%9A%E6%AA%94/EnvironmentFooter.js';
+  footerScript.src += '?v=' + Date.now();
   footerScript.setAttribute('data-skh-environment-footer', '1');
   document.body.appendChild(footerScript);
 

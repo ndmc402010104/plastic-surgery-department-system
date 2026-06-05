@@ -26,21 +26,21 @@ EnvironmentFooter.js
         key:'gasDev',
         label:'app script測試版',
         url:'https://script.google.com/macros/s/AKfycbwySlDY2aAbYpy5OSi85vHz1pk5g1FQfopcaCfVneE/dev',
-        version:'v2.33.0-202606051508',
+        version:'v2.35.0-202606051505',
         type:'gas'
       },
       webDev:{
         key:'webDev',
         label:'測試版',
         url:'https://dev-skhps.jonaminz.com',
-        version:'v2.33.0-202606051508',
+        version:'v2.35.0-202606051505',
         type:'web'
       },
       webProd:{
         key:'webProd',
         label:'正式版',
         url:'https://skhps.jonaminz.com',
-        version:'v2.33.0-202606051508',
+        version:'v2.36.0-202606051516',
         type:'web'
       }
     };
@@ -56,13 +56,13 @@ EnvironmentFooter.js
     style.id = 'skhEnvironmentFooterStyle';
     style.textContent =
       '.appVersionFooter{position:fixed;left:0;right:0;bottom:0;z-index:10000;min-height:42px;display:flex;align-items:center;justify-content:center;padding:6px 12px;box-sizing:border-box;background:rgba(248,251,255,.94);border-top:1px solid rgba(148,163,184,.38);box-shadow:0 -8px 24px rgba(15,23,42,.08);backdrop-filter:blur(10px);}' +
-      '.appVersionSegment{display:grid;grid-template-columns:minmax(260px,1.35fr) minmax(210px,1fr) minmax(220px,1fr);gap:4px;width:min(1120px,calc(100vw - 24px));padding:3px;border:1px solid rgba(148,163,184,.38);border-radius:999px;background:rgba(226,232,240,.65);}' +
+      '.appVersionSegment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:min(1120px,calc(100vw - 24px));min-width:0;padding:3px;border:1px solid rgba(148,163,184,.38);border-radius:999px;background:rgba(226,232,240,.65);}' +
       '.appVersionBadge{display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;gap:7px;min-width:0;min-height:28px;padding:5px 12px;border:1px solid transparent;border-radius:999px;background:transparent;color:#475569;font-size:11px;font-weight:800;line-height:1.1;text-decoration:none;white-space:nowrap;cursor:pointer;transition:color .16s ease,border-color .16s ease,background-color .16s ease,box-shadow .16s ease;}' +
       '.appVersionBadge:hover{color:#1d4ed8;background:rgba(255,255,255,.78);border-color:rgba(37,99,235,.25);}' +
       '.appVersionBadge.is-active{color:#ffffff;background:linear-gradient(135deg,#2563eb,#0f766e);border-color:transparent;box-shadow:0 8px 18px rgba(37,99,235,.20);cursor:default;}' +
       '.appVersionBadgeMode{flex:0 0 auto;font-weight:900;overflow:hidden;text-overflow:ellipsis;}' +
       '.appVersionText{flex:0 1 auto;font-weight:800;opacity:.9;overflow:hidden;text-overflow:ellipsis;}' +
-      '@media(max-width:820px){.appVersionSegment{grid-template-columns:minmax(0,1.32fr) minmax(0,1fr) minmax(0,1fr);width:calc(100vw - 12px)}.appVersionBadge{font-size:10px;padding:5px 7px;gap:4px}}' +
+      '@media(max-width:820px){.appVersionSegment{grid-template-columns:repeat(3,minmax(0,1fr));width:calc(100vw - 12px)}.appVersionBadge{font-size:10px;padding:5px 7px;gap:4px}}' +
       '@media(max-width:600px){.appVersionFooter{min-height:38px;padding:4px 4px}.appVersionSegment{gap:2px;padding:2px;width:calc(100vw - 8px)}.appVersionBadge{min-height:28px;padding:4px 4px;font-size:8.5px;gap:3px}.appVersionBadgeMode,.appVersionText{max-width:100%}}';
     document.head.appendChild(style);
   }
@@ -116,6 +116,11 @@ EnvironmentFooter.js
         gasUrl = appendParam(gasUrl, 'page', page);
       }
 
+      gasUrl = appendCurrentSearchParams(gasUrl, {
+        appEnv:true,
+        page:true
+      });
+
       return gasUrl + (location.hash || '');
     }
 
@@ -144,13 +149,106 @@ EnvironmentFooter.js
     }
 
     if(path === '/' || path.indexOf('/macros/') >= 0){
-      path = '/';
+      path = getWebPathForGasPage(getGasPageParam()) || '/';
     }
 
-    return origin.replace(/\/+$/, '') + path + (location.hash || '');
+    return composeWebTargetUrl(
+      origin,
+      path,
+      getCurrentSearchString({
+        appEnv:true,
+        page:true
+      })
+    );
+  }
+
+  function composeWebTargetUrl(origin, path, search){
+    var routeHash = '';
+    var hashIndex = path.indexOf('#');
+
+    if(hashIndex >= 0){
+      routeHash = path.slice(hashIndex);
+      path = path.slice(0, hashIndex);
+    }
+
+    return origin.replace(/\/+$/, '') +
+      path +
+      (search || '') +
+      (routeHash || location.hash || '');
+  }
+
+  function getCurrentSearchString(excludedKeys){
+    var search = String(location.search || '');
+
+    if(!search || typeof URLSearchParams === 'undefined'){
+      return '';
+    }
+
+    var params = new URLSearchParams(search);
+    var parts = [];
+
+    params.forEach(function(value, key){
+      if(excludedKeys && excludedKeys[key]){
+        return;
+      }
+
+      parts.push(
+        encodeURIComponent(key) + '=' + encodeURIComponent(value)
+      );
+    });
+
+    return parts.length ? '?' + parts.join('&') : '';
+  }
+
+  function appendCurrentSearchParams(url, excludedKeys){
+    var search = getCurrentSearchString(excludedKeys);
+
+    if(!search){
+      return url;
+    }
+
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + search.slice(1);
+  }
+
+  function getSearchPageParam(){
+    var search = String(location.search || '');
+
+    if(!search || typeof URLSearchParams === 'undefined'){
+      return '';
+    }
+
+    return String(new URLSearchParams(search).get('page') || '');
+  }
+
+  function getWebPathForGasPage(page){
+    var key = String(page || '').toLowerCase();
+    var routes = {
+      signmeeting:'科室系統用戶端/SignMeeting.html',
+      signqr:'科室系統用戶端/SignQRGenerator.html',
+      hospitalsignin:'科室系統用戶端/HospitalSignIn.html',
+      dressingfront:'敷料領用登錄系統/DressingFront.html',
+      dressinguse:'敷料領用登錄系統/DressingUse.html',
+      dressingdict:'敷料領用登錄系統/DressingFront.html#dressingDict',
+      uitest:'共用設定檔/UI設定/99_文件/skh-ui-test-page.html'
+    };
+
+    return routes[key] || '';
   }
 
   function getGasPageParam(){
+    var pageParam = getSearchPageParam();
+
+    if(pageParam){
+      return pageParam;
+    }
+
+    var hash =
+      String(location.hash || '').toLowerCase();
+
+    if(hash.indexOf('dressingdict') >= 0){
+      return 'dressingdict';
+    }
+
     var path =
       String(location.pathname || '').toLowerCase();
 
@@ -215,14 +313,6 @@ EnvironmentFooter.js
       if(!isActive){
         item.href = buildTargetUrl(env);
         item.target = '_top';
-
-        item.addEventListener('click', function(event){
-          if(key === 'webProd' && currentEnv !== 'webProd'){
-            if(!global.confirm('即將前往正式版 skhps.jonaminz.com')){
-              event.preventDefault();
-            }
-          }
-        });
       }
 
       item.innerHTML =
@@ -255,6 +345,12 @@ EnvironmentFooter.js
     renderEnvironmentFooter();
   }
 })(typeof window !== 'undefined' ? window : this);
+
+
+
+
+
+
 
 
 

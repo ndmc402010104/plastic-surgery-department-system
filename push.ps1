@@ -1,7 +1,7 @@
 ﻿# 檔案位置：專案根目錄/push.ps1
-# 時間戳記：2026-06-05 09:55 UTC+8
-# 用途：累加式四段部署腳本；先完成本地版本/commit 整理，再集中 Git push 到各遠端。
-# 階段：1=push app script，2=加上 dev-skhps 分支部署 + commit，3=加上換電腦用備份，4=加上正式版 master + PROD。
+# 時間戳記：2026-06-05 15:14 UTC+8
+# 用途：簡化四段部署腳本；不自動切分支、不使用 worktree、不自動 merge。
+# 階段：1=push app script，2=加上 dev-skhps，3=本地 commit/可選備份，4=正式版 skhps + PROD。
 
 param(
   [ValidateSet('ask','commit-only','backup-wip','dev-app','dev-skhps','dev-app-backup','dev-all','release','skhps','all','push','push-github','deploy')]
@@ -576,7 +576,7 @@ function Confirm-ProdPushOrExit {
   $branch = Get-GitCurrentBranch
 
   if ($branch -ne 'master') {
-    throw "目前分支是 '$branch'，正式版只能從 master 分支推送。請先 merge 回 master。"
+    throw "目前分支是 '$branch'，正式版只能從 master 分支推送。請先手動確認 master 已包含要上線內容，再切回 master。"
   }
 
   $confirm = Read-Host "請輸入 PROD 才繼續"
@@ -713,7 +713,9 @@ function Invoke-SyncVersionForEnv {
 
     [bool]$UpdateWebDevVersion = $false,
 
-    [bool]$UpdateWebProdVersion = $false
+    [bool]$UpdateWebProdVersion = $false,
+
+    [bool]$UpdateCname = $true
   )
 
   $appConfig = Sync-AppVersion `
@@ -727,7 +729,9 @@ function Invoke-SyncVersionForEnv {
     -UpdateWebDevVersion $UpdateWebDevVersion `
     -UpdateWebProdVersion $UpdateWebProdVersion
 
-  Update-CnameForEnv -DefaultEnv $DefaultEnv
+  if ($UpdateCname) {
+    Update-CnameForEnv -DefaultEnv $DefaultEnv
+  }
 
   $gasDevVersionForReadme = if ($UpdateGasDevVersion) { $appConfig.Version } else { $null }
   $webDevVersionForReadme = if ($UpdateWebDevVersion) { $appConfig.Version } else { $null }
@@ -871,13 +875,26 @@ if ($env:APP_VERSION_BUMP) {
 # push-github -> dev-app script + dev-skhps
 # deploy      -> skhps；並預設啟用正式 Apps Script API deploy
 $legacyDeployRequested = $false
+$devSkhpsDeployBranch = 'main'
 
 switch ($Action) {
   'push' {
     $Action = 'dev-app'
   }
   'push-github' {
-    $Action = 'dev-all'
+    $Action = 'dev-skhps'
+  }
+  'dev-all' {
+    $Action = 'dev-skhps'
+  }
+  'dev-app-backup' {
+    $Action = 'backup-wip'
+  }
+  'all' {
+    $Action = 'backup-wip'
+  }
+  'skhps' {
+    $Action = 'release'
   }
   'deploy' {
     $Action = 'release'
@@ -888,15 +905,15 @@ switch ($Action) {
 
 if ($Action -eq 'ask') {
   Write-Host ""
-  Write-Host "累加式部署目標：" -ForegroundColor Cyan
+  Write-Host "四段部署目標（不自動切分支、不自動 merge、不使用 worktree）：" -ForegroundColor Cyan
   Write-Host "[1] push app script"
-  Write-Host "    = clasp push；只更新 app script測試版，測 Apps Script 後端"
-  Write-Host "[2] 加上 push dev-skhps.jonaminz.com 分支 + commit"
-  Write-Host "    = 1 + git commit + git push --force-with-lease dev HEAD:dev-current + HEAD:main"
-  Write-Host "[3] 加上換電腦用備份 origin/wip-current"
-  Write-Host "    = 1 + 2 + git push --force-with-lease origin HEAD:wip-current，不更新正式版"
-  Write-Host "[4] 加上 push master + PROD"
-  Write-Host "    = 1 + 2 + 正式版 skhps.jonaminz.com；只允許 master，需輸入 PROD"
+  Write-Host "    = 儲存 + 同步 dev Apps Script + clasp push；不 git commit、不 git push"
+  Write-Host "[2] 加上 push dev-skhps.jonaminz.com"
+  Write-Host "    = 1 + git commit + git push --force-with-lease dev HEAD:$devSkhpsDeployBranch"
+  Write-Host "[3] 本地儲存 / commit / 可選備份"
+  Write-Host "    = 儲存 + git commit；可選 origin/wip-current；不 deploy skhps"
+  Write-Host "[4] deploy skhps 正式版"
+  Write-Host "    = 只允許 master + PROD + prod sync + git push origin master"
   Write-Host "[0] 取消"
 
   $Action = Read-MenuChoice `
@@ -907,17 +924,20 @@ if ($Action -eq 'ask') {
       'app' = 'dev-app'
       'gas' = 'dev-app'
 
-      '2' = 'dev-all'
-      'dev-all' = 'dev-all'
-      'dev-skhps' = 'dev-all'
-      'dev' = 'dev-all'
-      'test' = 'dev-all'
+      '2' = 'dev-skhps'
+      'dev-skhps' = 'dev-skhps'
+      'dev-all' = 'dev-skhps'
+      'dev' = 'dev-skhps'
+      'test' = 'dev-skhps'
 
-      '3' = 'all'
-      'backup' = 'all'
-      'wip' = 'all'
-      'switch' = 'all'
-      'daily' = 'all'
+      '3' = 'backup-wip'
+      'backup' = 'backup-wip'
+      'backup-wip' = 'backup-wip'
+      'wip' = 'backup-wip'
+      'switch' = 'backup-wip'
+      'daily' = 'backup-wip'
+      'commit' = 'commit-only'
+      'commit-only' = 'commit-only'
 
       '4' = 'release'
       'release' = 'release'
@@ -933,6 +953,23 @@ if ($Action -eq 'ask') {
 if ($Action -eq 'cancel') {
   Write-Host "已取消。" -ForegroundColor Yellow
   exit 0
+}
+
+$needsDevApp = $Action -in @('dev-app','dev-skhps')
+$needsDevSkhps = $Action -eq 'dev-skhps'
+$needsSkhps = $Action -eq 'release'
+$needsLocalCommitOnly = $Action -in @('backup-wip','commit-only')
+$needsAnyGit = $needsDevSkhps -or $needsSkhps -or $needsLocalCommitOnly
+
+# 正式版先擋在 master 與 PROD，避免先改檔後才發現不能上線。
+if ($needsSkhps) {
+  Confirm-ProdPushOrExit
+}
+
+# skhps 正式版若不是舊 deploy 參數，互動詢問是否一併部署正式 Apps Script API。
+if ($needsSkhps -and -not $legacyDeployRequested -and -not $DeployProdAppScript) {
+  Write-Host ""
+  $DeployProdAppScript = Read-YesNo -Message "這次 skhps 正式上線要同時部署正式 Apps Script API 嗎？通常只有後端 API 有改才需要" -Default $false
 }
 
 if ($Bump -eq 'ask') {
@@ -970,132 +1007,139 @@ if ($writeReadme -and -not ($Note -and ($Note -join '').Trim())) {
 }
 
 $sourceVersion = Get-CurrentAppVersion -RootPath $rootPath
-$version = New-AppVersion -RootPath $rootPath -Bump $Bump
-$readmePath = Join-Path $rootPath 'README.md'
-
-$needsDevApp = $Action -in @('dev-app','dev-all','all','release')
-$needsDevSkhps = $Action -in @('dev-all','all','release')
-$needsSkhps = $Action -in @('release')
-$needsBackupWip = $Action -in @('all')
-$needsAnyGit = $Action -in @('dev-all','all','release')
-$pendingGitPushes = @()
-$devPushSha = $null
-$prodPushSha = $null
-
-# skhps 正式版若不是舊 deploy 參數，互動詢問是否一併部署正式 Apps Script API。
-if ($needsSkhps -and -not $legacyDeployRequested -and -not $DeployProdAppScript) {
-  Write-Host ""
-  $DeployProdAppScript = Read-YesNo -Message "這次 skhps 正式上線要同時部署正式 Apps Script API 嗎？通常只有後端 API 有改才需要" -Default $false
+$version = if (($needsDevApp -or $needsSkhps) -or ($needsLocalCommitOnly -and $Bump -ne 'none')) {
+  New-AppVersion -RootPath $rootPath -Bump $Bump
 }
+else {
+  $sourceVersion
+}
+$readmePath = Join-Path $rootPath 'README.md'
 
 $devConfig = $null
 $prodConfig = $null
 
-if ($needsDevApp -or $needsDevSkhps) {
+if ($needsDevApp) {
   $devConfig = Invoke-SyncVersionForEnv `
     -DefaultEnv 'dev' `
     -Version $version `
     -ReadmePath $readmePath `
-    -UpdateGasDevVersion $needsDevApp `
-    -UpdateWebDevVersion $needsDevSkhps
-}
+    -UpdateGasDevVersion $true `
+    -UpdateWebDevVersion $needsDevSkhps `
+    -UpdateCname $needsDevSkhps
 
-if ($writeReadme -and ($needsDevApp -or $needsDevSkhps)) {
-  $readmeUpdated = Update-ReadmeVersionLog `
-    -RootPath $rootPath `
-    -Version $version `
-    -ReleaseType 'dev' `
-    -SourceVersion $sourceVersion `
-    -Notes $Note
+  if ($writeReadme) {
+    $readmeUpdated = Update-ReadmeVersionLog `
+      -RootPath $rootPath `
+      -Version $version `
+      -ReleaseType 'dev' `
+      -SourceVersion $sourceVersion `
+      -Notes $Note
 
-  if ($readmeUpdated) {
-    Write-Host "README version log updated with $($devConfig.Description)"
+    if ($readmeUpdated) {
+      Write-Host "README version log updated with $($devConfig.Description)"
+    }
+    else {
+      Write-Host "README already contains $($devConfig.Description)"
+    }
   }
   else {
-    Write-Host "README already contains $($devConfig.Description)"
+    Write-Host "README version log skipped."
+  }
+
+  Invoke-DevAppScript -Config $devConfig
+}
+elseif ($needsLocalCommitOnly) {
+  if ($writeReadme) {
+    $readmeUpdated = Update-ReadmeVersionLog `
+      -RootPath $rootPath `
+      -Version $version `
+      -ReleaseType 'dev' `
+      -SourceVersion $sourceVersion `
+      -Notes $Note
+
+    if ($readmeUpdated) {
+      Write-Host "README version log updated for local commit."
+    }
+    else {
+      Write-Host "README already contains v$version."
+    }
+  }
+  else {
+    Write-Host "README version log skipped."
   }
 }
-elseif ($writeReadme -and -not ($needsDevApp -or $needsDevSkhps)) {
-  Write-Host "README version log for dev skipped because no dev target selected." -ForegroundColor Yellow
-}
-else {
-  Write-Host "README version log skipped."
-}
 
-if ($needsAnyGit) {
+if ($needsDevSkhps) {
   $defaultMsg = if ($devConfig) {
-    "Bump version to v$($devConfig.Version)"
+    "Bump dev-skhps to v$($devConfig.Version)"
   }
   else {
-    "Update project"
+    "Update dev-skhps"
   }
 
   Invoke-GitCommitIfNeeded -DefaultMessage $defaultMsg | Out-Null
   $devPushSha = Get-GitHeadSha
+
+  Write-Host ""
+  Write-Host "==========================" -ForegroundColor Cyan
+  Write-Host "[2] 推送 dev-skhps.jonaminz.com" -ForegroundColor Cyan
+  Write-Host "==========================" -ForegroundColor Cyan
+  Write-Host "只推 dev remote 的單一部署分支：$devSkhpsDeployBranch；不切分支、不碰 origin/master。" -ForegroundColor Yellow
+
+  Invoke-GitPush `
+    -RemoteName 'dev' `
+    -RefSpec "$($devPushSha):$devSkhpsDeployBranch" `
+    -SiteName 'dev-skhps' `
+    -SiteUrl 'https://dev-skhps.jonaminz.com' `
+    -ForceWithLease
+
+  Confirm-GitRemoteRefMatchesHead `
+    -RemoteName 'dev' `
+    -BranchName $devSkhpsDeployBranch `
+    -Label "dev-skhps $devSkhpsDeployBranch" `
+    -ExpectedSha $devPushSha
 }
 
-if ($needsDevApp) {
-  Invoke-DevAppScript -Config $devConfig
-}
+if ($needsLocalCommitOnly) {
+  Invoke-GitCommitIfNeeded -DefaultMessage "Save local work" | Out-Null
+  $localSha = Get-GitHeadSha
 
-if ($needsDevSkhps) {
-  $pendingGitPushes += [pscustomobject]@{
-    Header = '[2] 推送 dev-skhps.jonaminz.com 分支'
-    Description = '測試版會推到 dev repo 的 dev-current；同時更新 main，避免 GitHub Pages 仍指向 main 時網站不更新。'
-    RemoteName = 'dev'
-    RefSpec = "$($devPushSha):dev-current"
-    SiteName = 'dev-skhps'
-    SiteUrl = 'https://dev-skhps.jonaminz.com'
-    ForceWithLease = $true
-    BranchName = 'dev-current'
-    Label = 'dev-skhps dev-current'
-    ExpectedSha = $devPushSha
-    Footer = $null
+  if ($Action -eq 'backup-wip' -and -not $NoGitHubPrompt) {
+    Write-Host ""
+    $doBackup = Read-YesNo -Message "要備份到 origin/wip-current 嗎？不會 deploy skhps" -Default $false
+
+    if ($doBackup) {
+      Write-Host ""
+      Write-Host "==========================" -ForegroundColor Cyan
+      Write-Host "[3] 備份 origin/wip-current" -ForegroundColor Cyan
+      Write-Host "==========================" -ForegroundColor Cyan
+
+      Invoke-GitPush `
+        -RemoteName 'origin' `
+        -RefSpec "$($localSha):wip-current" `
+        -SiteName 'origin/wip-current 工作進度備份' `
+        -SiteUrl 'GitHub origin/wip-current' `
+        -ForceWithLease
+
+      Confirm-GitRemoteRefMatchesHead `
+        -RemoteName 'origin' `
+        -BranchName 'wip-current' `
+        -Label '換電腦用備份' `
+        -ExpectedSha $localSha
+    }
   }
 
-  $pendingGitPushes += [pscustomobject]@{
-    Header = $null
-    Description = $null
-    RemoteName = 'dev'
-    RefSpec = "$($devPushSha):main"
-    SiteName = 'dev-skhps Pages main'
-    SiteUrl = 'https://dev-skhps.jonaminz.com'
-    ForceWithLease = $true
-    BranchName = 'main'
-    Label = 'dev-skhps main'
-    ExpectedSha = $devPushSha
-    Footer = 'dev-skhps 建議在 GitHub Pages 設定為 Branch: dev-current / (root)；目前腳本也同步 main 以相容現有設定。'
-  }
-
-  Write-Host "dev-skhps Git push 已排程，會等本地階段全部處理完成後再推出。" -ForegroundColor DarkGray
-}
-
-if ($needsBackupWip) {
-  $pendingGitPushes += [pscustomobject]@{
-    Header = '[3] 換電腦用備份 origin/wip-current'
-    Description = "備份 $devPushSha 到 origin/wip-current；不更新任何網站。"
-    RemoteName = 'origin'
-    RefSpec = "$($devPushSha):wip-current"
-    SiteName = 'origin/wip-current 工作進度備份'
-    SiteUrl = 'GitHub origin/wip-current'
-    ForceWithLease = $true
-    BranchName = 'wip-current'
-    Label = '換電腦用備份'
-    ExpectedSha = $devPushSha
-    Footer = "換電腦時可執行：`ngit fetch origin`ngit checkout -B wip-current origin/wip-current"
-  }
-
-  Write-Host "origin/wip-current 備份推送已排程，會等本地階段全部處理完成後再推出。" -ForegroundColor DarkGray
+  Write-Host ""
+  Write-Host "已完成本地儲存 / commit；未 deploy skhps。" -ForegroundColor Green
 }
 
 if ($needsSkhps) {
-  Confirm-ProdPushOrExit
-
   $prodConfig = Invoke-SyncVersionForEnv `
     -DefaultEnv 'prod' `
     -Version $version `
     -ReadmePath $readmePath `
-    -UpdateWebProdVersion $true
+    -UpdateWebProdVersion $true `
+    -UpdateCname $true
 
   if ($writeReadme) {
     $readmeUpdated = Update-ReadmeVersionLog `
@@ -1112,6 +1156,9 @@ if ($needsSkhps) {
       Write-Host "README already contains $($prodConfig.Description)"
     }
   }
+  else {
+    Write-Host "README version log skipped."
+  }
 
   if ($DeployProdAppScript) {
     Invoke-ProdAppScriptDeploy -Config $prodConfig
@@ -1123,68 +1170,23 @@ if ($needsSkhps) {
   Invoke-GitCommitIfNeeded -DefaultMessage "Release skhps v$($prodConfig.Version)" | Out-Null
   $prodPushSha = Get-GitHeadSha
 
-  $pendingGitPushes += [pscustomobject]@{
-    Header = '[4] 推送 master + PROD'
-    Description = $null
-    RemoteName = 'origin'
-    RefSpec = "$($prodPushSha):master"
-    SiteName = 'skhps'
-    SiteUrl = 'https://skhps.jonaminz.com'
-    ForceWithLease = $false
-    BranchName = 'master'
-    Label = '正式版 master'
-    ExpectedSha = $prodPushSha
-    Footer = $null
-  }
-
-  Write-Host "正式版 Git push 已排程，會等本地階段全部處理完成後再推出。" -ForegroundColor DarkGray
-}
-
-if ($pendingGitPushes.Count -gt 0) {
   Write-Host ""
   Write-Host "==========================" -ForegroundColor Cyan
-  Write-Host "集中 Git push" -ForegroundColor Cyan
+  Write-Host "[4] 推送 skhps 正式版" -ForegroundColor Cyan
   Write-Host "==========================" -ForegroundColor Cyan
-  Write-Host "本地各階段已處理完成，現在才開始推送遠端。" -ForegroundColor Yellow
+  Write-Host "只推 origin/master；不自動 merge、不切分支。" -ForegroundColor Yellow
 
-  foreach ($pendingPush in $pendingGitPushes) {
-    if ($pendingPush.Header) {
-      Write-Host ""
-      Write-Host "==========================" -ForegroundColor Cyan
-      Write-Host $pendingPush.Header -ForegroundColor Cyan
-      Write-Host "==========================" -ForegroundColor Cyan
-    }
+  Invoke-GitPush `
+    -RemoteName 'origin' `
+    -RefSpec "$($prodPushSha):master" `
+    -SiteName 'skhps' `
+    -SiteUrl 'https://skhps.jonaminz.com'
 
-    if ($pendingPush.Description) {
-      Write-Host $pendingPush.Description -ForegroundColor Yellow
-    }
-
-    if ($pendingPush.ForceWithLease) {
-      Invoke-GitPush `
-        -RemoteName $pendingPush.RemoteName `
-        -RefSpec $pendingPush.RefSpec `
-        -SiteName $pendingPush.SiteName `
-        -SiteUrl $pendingPush.SiteUrl `
-        -ForceWithLease
-    }
-    else {
-      Invoke-GitPush `
-        -RemoteName $pendingPush.RemoteName `
-        -RefSpec $pendingPush.RefSpec `
-        -SiteName $pendingPush.SiteName `
-        -SiteUrl $pendingPush.SiteUrl
-    }
-
-    Confirm-GitRemoteRefMatchesHead `
-      -RemoteName $pendingPush.RemoteName `
-      -BranchName $pendingPush.BranchName `
-      -Label $pendingPush.Label `
-      -ExpectedSha $pendingPush.ExpectedSha
-
-    if ($pendingPush.Footer) {
-      Write-Host $pendingPush.Footer -ForegroundColor Yellow
-    }
-  }
+  Confirm-GitRemoteRefMatchesHead `
+    -RemoteName 'origin' `
+    -BranchName 'master' `
+    -Label '正式版 master' `
+    -ExpectedSha $prodPushSha
 }
 
 if ($Action -eq 'commit-only') {
