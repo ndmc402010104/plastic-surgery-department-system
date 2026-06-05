@@ -255,6 +255,9 @@ const GITHUB_PAGES_BASE_URL =
 
 
 function getGithubRepoBasePath(){
+  if(!window.location.hostname.includes('github.io')){
+    return '/';
+  }
 
   const parts =
     window.location.pathname.split('/').filter(Boolean);
@@ -271,7 +274,7 @@ function getGithubPageUrl(pageKey){
   const path =
     GITHUB_PAGE_MAP[pageKey] || GITHUB_PAGE_MAP.home;
 
-  if(window.location.hostname.includes('github.io')){
+  if((window.location.hostname.includes('github.io') || window.location.hostname === 'dev-skhps.jonaminz.com' || window.location.hostname === 'skhps.jonaminz.com')){
     return window.location.origin +
       getGithubRepoBasePath() +
       path;
@@ -285,7 +288,11 @@ function getGithubPageUrl(pageKey){
 
 function getCurrentAppEnv(){
 
-  if(window.location.hostname.includes('github.io')){
+  if(window.location.hostname === 'dev-skhps.jonaminz.com'){
+    return 'dev';
+  }
+
+  if(window.location.hostname === 'skhps.jonaminz.com' || window.location.hostname.includes('github.io')){
     return 'prod';
   }
 
@@ -362,7 +369,7 @@ function buildAppPageUrl(baseUrl, page, env){
 
 function goPage(page){
 
-  if(window.location.hostname.includes('github.io')){
+  if((window.location.hostname.includes('github.io') || window.location.hostname === 'dev-skhps.jonaminz.com' || window.location.hostname === 'skhps.jonaminz.com')){
     const githubRouteKeyByAppPage = {
       signqr:'signQR',
       hospitalsignin:'hospitalSignIn',
@@ -399,7 +406,7 @@ function goPage(page){
 
 function goHome(){
 
-  if(window.location.hostname.includes('github.io')){
+  if((window.location.hostname.includes('github.io') || window.location.hostname === 'dev-skhps.jonaminz.com' || window.location.hostname === 'skhps.jonaminz.com')){
     window.top.location.href =
       getGithubPageUrl('frontIndex');
     return;
@@ -436,7 +443,7 @@ function goHospitalSignIn(){
 
 function goDressingFront(){
 
-  if(window.location.hostname.includes('github.io')){
+  if((window.location.hostname.includes('github.io') || window.location.hostname === 'dev-skhps.jonaminz.com' || window.location.hostname === 'skhps.jonaminz.com')){
     window.top.location.href =
       getGithubPageUrl('dressingFront');
     return;
@@ -560,7 +567,7 @@ onclick="goUiTest()"
 // 如果是 GitHub Pages，因為 GAS 的標籤無法執行，我們手動加上專屬的 Footer 與 Header 標籤
 
 
-if (window.location.hostname.includes('github.io')) {
+if ((window.location.hostname.includes('github.io') || window.location.hostname === 'dev-skhps.jonaminz.com' || window.location.hostname === 'skhps.jonaminz.com')) {
   const ghShellStyle = document.createElement('style');
   ghShellStyle.textContent = `
     :root{
@@ -645,19 +652,18 @@ if (window.location.hostname.includes('github.io')) {
   `;
   document.body.prepend(ghHeader);
 
-  const ghFooter = document.createElement('div');
-  ghFooter.className = 'appVersionFooter';
-  ghFooter.dataset.appFooter = '1';
-  ghFooter.innerHTML = `
-    <div class="appVersionBadge is-active" aria-label="GitHub 版本資訊">
-      <span class="appVersionBadgeMode">GitHub 版</span>
-      <span class="appVersionText">v2.27.20-202606042358</span>
-    </div>
-  `;
-  document.body.appendChild(ghFooter);
+  const footerScript = document.createElement('script');
+  footerScript.src = window.location.hostname.includes('github.io')
+    ? 'https://ndmc402010104.github.io/plastic-surgery-department-system/%E5%85%B1%E7%94%A8%E8%A8%AD%E5%AE%9A%E6%AA%94/EnvironmentFooter.js'
+    : '/%E5%85%B1%E7%94%A8%E8%A8%AD%E5%AE%9A%E6%AA%94/EnvironmentFooter.js';
+  footerScript.setAttribute('data-skh-environment-footer', '1');
+  document.body.appendChild(footerScript);
+
 }
 </script>
 
 </body>
 
 </html>
+
+
