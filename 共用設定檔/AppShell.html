@@ -119,6 +119,21 @@ button:disabled{
   opacity:.55;
   cursor:not-allowed;
 }
+a[href],
+button:not(:disabled),
+[onclick]:not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.no-pointer):not(.is-loading),
+[role="button"]:not([aria-disabled="true"]):not(.is-disabled):not(.no-pointer):not(.is-loading),
+.is-clickable:not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.no-pointer):not(.is-loading),
+.clickable:not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.no-pointer):not(.is-loading){
+  cursor:pointer;
+}
+[disabled],
+[aria-disabled="true"],
+.is-disabled,
+.no-pointer,
+.is-loading{
+  cursor:default;
+}
 .primary,
 .submit,
 .loginBtn,

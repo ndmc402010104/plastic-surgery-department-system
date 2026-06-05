@@ -220,6 +220,15 @@ button:hover{
   box-shadow:0 14px 32px rgba(15,23,42,.08);
 }
 
+.qrPreview a[href] img,
+.qrPreview img[onclick],
+.qrPreview [role="button"] img,
+.qrPreview[data-clickable="true"] img,
+#result a[href] img,
+#result img[onclick]{
+  cursor:pointer;
+}
+
 @media(max-width:640px){
   body{
     padding:104px 16px 72px;
@@ -641,6 +650,7 @@ button:hover{
       '.qrHint{margin:0;color:#1d4ed8;font-size:clamp(22px,3vw,38px);font-weight:800;}' +
       '.qrLink{display:block;}' +
       'img{width:min(68vh,78vw,680px);max-width:100%;max-height:62vh;cursor:default;background:#ffffff;border:1px solid #dbe4ef;border-radius:8px;padding:18px;box-sizing:border-box;box-shadow:0 18px 45px rgba(15,23,42,.12);}' +
+      '.qrLink[href] img,#qrImage[onclick]{cursor:pointer;}' +
       '@media(orientation:landscape){.qrStage{flex-direction:row;gap:clamp(28px,5vw,70px);padding:clamp(28px,4vw,56px);text-align:left;}.qrCopy{width:min(42vw,560px);justify-items:start;}.meetingName{font-size:clamp(36px,4vw,72px);}.meetingTime{font-size:clamp(22px,2.3vw,38px);}.qrHint{font-size:clamp(24px,2.5vw,42px);}img{width:min(72vh,42vw,720px);max-height:82vh;}}' +
       '@media(orientation:portrait){.qrStage{padding:28px 18px;}.meetingName{font-size:clamp(30px,8vw,58px);}img{width:min(76vw,58vh,620px);max-height:56vh;}}' +
       '</style>' +
@@ -828,7 +838,7 @@ function installGithubAppShellFallback(){
       ghHeader.className = 'appHeader';
       ghHeader.style.cssText = 'position:relative; flex-shrink:0; z-index:20; display:flex; justify-content:space-between; align-items:center; gap:18px; height:76px; margin:0; box-sizing:border-box; border-bottom:1px solid #dbe4ef; background:rgba(248,251,255,.92); backdrop-filter:blur(10px); box-shadow:0 8px 24px rgba(15,23,42,.06);';
       ghHeader.innerHTML =
-        '<div class="brand" onclick="goHome()" style="display:flex; align-items:center; gap:14px; cursor:default;">' +
+        '<div class="brand" onclick="goHome()" style="display:flex; align-items:center; gap:14px; cursor:pointer;">' +
           '<div class="brandMark" style="width:46px; height:46px; display:grid; place-items:center; border-radius:14px; color:#ffffff; font-size:22px; font-weight:800; background:linear-gradient(135deg,#2563eb,#0f766e); box-shadow:0 12px 24px rgba(37,99,235,.2);">S</div>' +
           '<div class="brandText" style="display:grid; gap:2px;">' +
             '<span class="brandName" style="font-size:18px; font-weight:800;">新光整形外科科室系統</span>' +

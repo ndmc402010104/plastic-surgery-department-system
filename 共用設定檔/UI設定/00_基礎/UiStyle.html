@@ -70,6 +70,24 @@ body{
   line-height:var(--skh-line-height);
 }
 
+a[href],
+button:not(:disabled),
+[onclick]:not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.no-pointer):not(.is-loading),
+[role="button"]:not([aria-disabled="true"]):not(.is-disabled):not(.no-pointer):not(.is-loading),
+.is-clickable:not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.no-pointer):not(.is-loading),
+.clickable:not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.no-pointer):not(.is-loading){
+  cursor:pointer;
+}
+
+button:disabled,
+[disabled],
+[aria-disabled="true"],
+.is-disabled,
+.no-pointer,
+.is-loading{
+  cursor:default;
+}
+
 /* Basic text */
 
 .skh-muted{

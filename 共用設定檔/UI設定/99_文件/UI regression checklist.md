@@ -16,8 +16,11 @@ Button
 [ ] Small button 在 table 裡高度正常
 [ ] Large button 在手機版不擠出畫面
 [ ] Disabled button 明顯不可點
+[ ] Enabled button hover 顯示 pointer
+[ ] Disabled button hover 不顯示 pointer
 [ ] Loading button spinner 顯示正常
 [ ] Loading button 不造成文字跳動
+[ ] Loading 且不可操作元素 hover 不顯示 pointer
 
 Alert / Badge
 [ ] Info alert 顯示正常
@@ -26,6 +29,7 @@ Alert / Badge
 [ ] Danger alert 顯示正常
 [ ] Badge 一般狀態顯示正常
 [ ] Badge success / warning / danger 顯示正常
+[ ] 純狀態 badge hover 不顯示 pointer
 
 Table
 [ ] Table header 顯示正常
@@ -35,6 +39,8 @@ Table
 [ ] Table 內 input 對齊正常
 [ ] Table 內 radio 不會擠爆欄位
 [ ] Table disabled button 狀態明確
+[ ] 可排序表頭 hover 顯示 pointer，不可排序表頭不顯示 pointer
+[ ] 可展開 / 收合列或標題 hover 顯示 pointer
 
 Form
 [ ] Input 寬度與高度正常
@@ -43,13 +49,24 @@ Form
 [ ] Radio group 顯示正常
 [ ] Focus 狀態清楚但不刺眼
 [ ] Label 與欄位距離正常
+[ ] 純文字 label hover 不顯示 pointer
 
 Modal
 [ ] Modal 可以開啟
 [ ] Modal 可以用取消關閉
 [ ] Modal 可以用確認關閉
+[ ] Modal 確認 / 取消 / 關閉 hover 顯示 pointer
 [ ] 點擊背景可關閉
 [ ] Modal 在手機版不超出畫面
+
+Cursor
+[ ] QR code 可點擊時 hover 顯示 pointer
+[ ] QR code 不可點擊時 hover 不顯示 pointer
+[ ] a[href] hover 顯示 pointer
+[ ] onclick 元素 hover 顯示 pointer
+[ ] 返回按鈕只有可返回或有 onclick 時 hover 顯示 pointer
+[ ] 不能返回或沒有 onclick 的返回區塊 hover 不顯示 pointer
+[ ] 搜尋候選項 hover 顯示 pointer
 
 Loading / Toast
 [ ] Spinner 旋轉正常
@@ -80,3 +97,4 @@ Integration
 [ ] GitHub Pages 若使用靜態版，不會因 GAS tag 顯示異常
 [ ] 本次修改沒有碰 DressingFront.js
 [ ] 本次修改沒有碰 AJAX / cache / fetch / 後端 API
+[ ] 本次 cursor 修改不影響 QR token、簽到送出、敷料掃描、敷料查詢、領用送出、入庫 / 盤點流程
