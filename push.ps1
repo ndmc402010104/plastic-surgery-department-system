@@ -1,7 +1,7 @@
 ﻿# 檔案位置：專案根目錄/push.ps1
-# 時間戳記：2026-06-05 15:14 UTC+8
-# 用途：簡化四段部署腳本；不自動切分支、不使用 worktree、不自動 merge。
-# 階段：1=push app script，2=加上 dev-skhps，3=本地 commit/可選備份，4=正式版 skhps + PROD。
+# 時間戳記：2026-06-05 15:18 UTC+8
+# 用途：累加式四段部署腳本；1 只跑 Apps Script，2=1+測試版前端，3=1+2+本地/備份，4=1+2+3+正式版。
+# 階段：1=push app script，2=1+dev-skhps，3=1+2+本地/可選備份，4=1+2+3+正式版 skhps + PROD。
 
 param(
   [ValidateSet('ask','commit-only','backup-wip','dev-app','dev-skhps','dev-app-backup','dev-all','release','skhps','all','push','push-github','deploy')]
@@ -905,15 +905,15 @@ switch ($Action) {
 
 if ($Action -eq 'ask') {
   Write-Host ""
-  Write-Host "四段部署目標（不自動切分支、不自動 merge、不使用 worktree）：" -ForegroundColor Cyan
+  Write-Host "累加式四段部署目標（不自動切分支、不自動 merge、不使用 worktree）：" -ForegroundColor Cyan
   Write-Host "[1] push app script"
   Write-Host "    = 儲存 + 同步 dev Apps Script + clasp push；不 git commit、不 git push"
   Write-Host "[2] 加上 push dev-skhps.jonaminz.com"
   Write-Host "    = 1 + git commit + git push --force-with-lease dev HEAD:$devSkhpsDeployBranch"
-  Write-Host "[3] 本地儲存 / commit / 可選備份"
-  Write-Host "    = 儲存 + git commit；可選 origin/wip-current；不 deploy skhps"
-  Write-Host "[4] deploy skhps 正式版"
-  Write-Host "    = 只允許 master + PROD + prod sync + git push origin master"
+  Write-Host "[3] 加上本地儲存 / commit / 可選備份"
+  Write-Host "    = 1 + 2 + 可選 origin/wip-current；不 deploy skhps"
+  Write-Host "[4] 加上 deploy skhps 正式版"
+  Write-Host "    = 1 + 2 + 3 + 只允許 master + PROD + prod sync + git push origin master"
   Write-Host "[0] 取消"
 
   $Action = Read-MenuChoice `
@@ -955,11 +955,17 @@ if ($Action -eq 'cancel') {
   exit 0
 }
 
-$needsDevApp = $Action -in @('dev-app','dev-skhps')
-$needsDevSkhps = $Action -eq 'dev-skhps'
+# 累加式語意：
+# 1 = dev-app
+# 2 = 1 + dev-skhps
+# 3 = 1 + 2 + local/backup
+# 4 = 1 + 2 + 3 + release
+$needsDevApp = $Action -in @('dev-app','dev-skhps','backup-wip','release')
+$needsDevSkhps = $Action -in @('dev-skhps','backup-wip','release')
+$needsBackupWip = $Action -in @('backup-wip','release')
 $needsSkhps = $Action -eq 'release'
-$needsLocalCommitOnly = $Action -in @('backup-wip','commit-only')
-$needsAnyGit = $needsDevSkhps -or $needsSkhps -or $needsLocalCommitOnly
+$needsLocalCommitOnly = $Action -eq 'commit-only'
+$needsAnyGit = $needsDevSkhps -or $needsBackupWip -or $needsSkhps -or $needsLocalCommitOnly
 
 # 正式版先擋在 master 與 PROD，避免先改檔後才發現不能上線。
 if ($needsSkhps) {
@@ -1007,7 +1013,7 @@ if ($writeReadme -and -not ($Note -and ($Note -join '').Trim())) {
 }
 
 $sourceVersion = Get-CurrentAppVersion -RootPath $rootPath
-$version = if (($needsDevApp -or $needsSkhps) -or ($needsLocalCommitOnly -and $Bump -ne 'none')) {
+$version = if (($needsDevApp -or $needsSkhps) -or ($needsBackupWip -and $Bump -ne 'none') -or ($needsLocalCommitOnly -and $Bump -ne 'none')) {
   New-AppVersion -RootPath $rootPath -Bump $Bump
 }
 else {
@@ -1048,26 +1054,6 @@ if ($needsDevApp) {
 
   Invoke-DevAppScript -Config $devConfig
 }
-elseif ($needsLocalCommitOnly) {
-  if ($writeReadme) {
-    $readmeUpdated = Update-ReadmeVersionLog `
-      -RootPath $rootPath `
-      -Version $version `
-      -ReleaseType 'dev' `
-      -SourceVersion $sourceVersion `
-      -Notes $Note
-
-    if ($readmeUpdated) {
-      Write-Host "README version log updated for local commit."
-    }
-    else {
-      Write-Host "README already contains v$version."
-    }
-  }
-  else {
-    Write-Host "README version log skipped."
-  }
-}
 
 if ($needsDevSkhps) {
   $defaultMsg = if ($devConfig) {
@@ -1100,13 +1086,12 @@ if ($needsDevSkhps) {
     -ExpectedSha $devPushSha
 }
 
-if ($needsLocalCommitOnly) {
-  Invoke-GitCommitIfNeeded -DefaultMessage "Save local work" | Out-Null
-  $localSha = Get-GitHeadSha
+if ($needsBackupWip) {
+  $backupSha = if ($devPushSha) { $devPushSha } else { Get-GitHeadSha }
 
-  if ($Action -eq 'backup-wip' -and -not $NoGitHubPrompt) {
+  if (-not $NoGitHubPrompt) {
     Write-Host ""
-    $doBackup = Read-YesNo -Message "要備份到 origin/wip-current 嗎？不會 deploy skhps" -Default $false
+    $doBackup = Read-YesNo -Message "[3] 要備份到 origin/wip-current 嗎？不會 deploy skhps" -Default $false
 
     if ($doBackup) {
       Write-Host ""
@@ -1116,7 +1101,7 @@ if ($needsLocalCommitOnly) {
 
       Invoke-GitPush `
         -RemoteName 'origin' `
-        -RefSpec "$($localSha):wip-current" `
+        -RefSpec "$($backupSha):wip-current" `
         -SiteName 'origin/wip-current 工作進度備份' `
         -SiteUrl 'GitHub origin/wip-current' `
         -ForceWithLease
@@ -1125,12 +1110,42 @@ if ($needsLocalCommitOnly) {
         -RemoteName 'origin' `
         -BranchName 'wip-current' `
         -Label '換電腦用備份' `
-        -ExpectedSha $localSha
+        -ExpectedSha $backupSha
     }
   }
 
   Write-Host ""
-  Write-Host "已完成本地儲存 / commit；未 deploy skhps。" -ForegroundColor Green
+  if ($needsSkhps) {
+    Write-Host "[3] 已完成 1+2+3，接著執行正式版 [4]。" -ForegroundColor Green
+  }
+  else {
+    Write-Host "已完成 1+2+3；未 deploy skhps。" -ForegroundColor Green
+  }
+}
+
+if ($needsLocalCommitOnly) {
+  if ($writeReadme) {
+    $readmeUpdated = Update-ReadmeVersionLog `
+      -RootPath $rootPath `
+      -Version $version `
+      -ReleaseType 'dev' `
+      -SourceVersion $sourceVersion `
+      -Notes $Note
+
+    if ($readmeUpdated) {
+      Write-Host "README version log updated for local commit."
+    }
+    else {
+      Write-Host "README already contains v$version."
+    }
+  }
+  else {
+    Write-Host "README version log skipped."
+  }
+
+  Invoke-GitCommitIfNeeded -DefaultMessage "Save local work" | Out-Null
+  Write-Host ""
+  Write-Host "已完成 commit-only；未部署。" -ForegroundColor Green
 }
 
 if ($needsSkhps) {
