@@ -793,7 +793,7 @@ if ($Action -eq 'ask') {
   Write-Host "[1] push app script"
   Write-Host "    = clasp push；只更新 app script測試版，測 Apps Script 後端"
   Write-Host "[2] 加上 push dev-skhps.jonaminz.com 分支 + commit"
-  Write-Host "    = 1 + git commit + git push --force-with-lease dev HEAD:dev-current"
+  Write-Host "    = 1 + git commit + git push --force-with-lease dev HEAD:dev-current + HEAD:main"
   Write-Host "[3] 加上換電腦用備份 origin/wip-current"
   Write-Host "    = 1 + 2 + git push --force-with-lease origin HEAD:wip-current，不更新正式版"
   Write-Host "[4] 加上 push master + PROD"
@@ -940,7 +940,7 @@ if ($needsDevSkhps) {
   Write-Host "==========================" -ForegroundColor Cyan
   Write-Host "[2] 加上 push dev-skhps.jonaminz.com 分支 + commit" -ForegroundColor Cyan
   Write-Host "=========================="
-  Write-Host "測試版允許目前 HEAD 推到 dev repo 的 dev-current 分支，避免測試內容被推到 master/main；dev-skhps 請固定由 dev-current 分支發布。"
+  Write-Host "測試版會推到 dev repo 的 dev-current；同時更新 main，避免 GitHub Pages 仍指向 main 時網站不更新。"
 
   Invoke-GitPush `
     -RemoteName 'dev' `
@@ -949,7 +949,14 @@ if ($needsDevSkhps) {
     -SiteUrl 'https://dev-skhps.jonaminz.com' `
     -ForceWithLease
 
-  Write-Host "dev-skhps 應在 GitHub Pages 設定為 Branch: dev-current / (root)。如果仍設為 main，網站會繼續吃舊分支。" -ForegroundColor Yellow
+  Invoke-GitPush `
+    -RemoteName 'dev' `
+    -RefSpec 'HEAD:main' `
+    -SiteName 'dev-skhps Pages main' `
+    -SiteUrl 'https://dev-skhps.jonaminz.com' `
+    -ForceWithLease
+
+  Write-Host "dev-skhps 建議在 GitHub Pages 設定為 Branch: dev-current / (root)；目前腳本也同步 main 以相容現有設定。" -ForegroundColor Yellow
 }
 
 if ($needsBackupWip) {
