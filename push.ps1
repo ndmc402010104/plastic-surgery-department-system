@@ -1,6 +1,6 @@
 ﻿# 檔案位置：專案根目錄/push.ps1
-# 時間戳記：2026-06-05 15:40 UTC+8
-# 用途：累加式四段部署腳本；1 只跑 Apps Script，2=1+測試版前端，3=1+2+本地確認，PROD=1+2+3+正式版；主選單輸入 PROD 即確認正式上線，啟動時先清除已失效 Git worktree metadata，避免 Git 反覆詢問 retry。
+# 時間戳記：2026-06-05 15:48 UTC+8
+# 用途：累加式四段部署腳本；1 只跑 Apps Script，2=1+測試版前端，3=1+2+本地確認，PROD=1+2+3+正式版；主選單輸入 PROD 即確認正式上線；README 後集中輸入測試版 commit，正式版 commit 使用預設值不再詢問。
 # 階段：1=push app script，2=1+2 push dev-skhps，3=1+2+3 本地確認不部署正式版，PROD=1+2+3+正式版 deploy skhps。
 
 param(
@@ -480,7 +480,13 @@ function Show-GitSnapshot {
 function Invoke-GitCommitIfNeeded {
   param(
     [Parameter(Mandatory = $true)]
-    [string]$DefaultMessage
+    [string]$DefaultMessage,
+
+    [string]$CommitMessage = '',
+
+    [switch]$NoPrompt,
+
+    [bool]$AllowSkip = $true
   )
 
   if ($NoGitHubPrompt) {
@@ -498,15 +504,23 @@ function Invoke-GitCommitIfNeeded {
   Write-Host "Git commit" -ForegroundColor Cyan
   Write-Host "=========================="
 
-  $commitMessage = Read-Host "Git commit message（直接按 Enter 使用 '$DefaultMessage'，輸入 skip 略過 commit）"
+  $finalCommitMessage = $CommitMessage
 
-  if ($commitMessage.Trim().ToLower() -eq 'skip') {
+  if (-not $NoPrompt -and [string]::IsNullOrWhiteSpace($finalCommitMessage)) {
+    $skipText = if ($AllowSkip) { '，輸入 skip 略過 commit' } else { '' }
+    $finalCommitMessage = Read-Host "Git commit message（直接按 Enter 使用 '$DefaultMessage'$skipText）"
+  }
+  elseif ($NoPrompt) {
+    Write-Host "使用預設 commit message：$DefaultMessage" -ForegroundColor DarkGray
+  }
+
+  if ($AllowSkip -and $finalCommitMessage.Trim().ToLower() -eq 'skip') {
     Write-Host "已略過 Git commit。" -ForegroundColor Yellow
     return $false
   }
 
-  if ([string]::IsNullOrWhiteSpace($commitMessage)) {
-    $commitMessage = $DefaultMessage
+  if ([string]::IsNullOrWhiteSpace($finalCommitMessage)) {
+    $finalCommitMessage = $DefaultMessage
   }
 
   Push-Location -LiteralPath $rootPath
@@ -518,7 +532,7 @@ function Invoke-GitCommitIfNeeded {
       throw "git add 失敗。"
     }
 
-    # OneDrive 有時候會短暫鎖檔，保留延遲。
+    # 等待檔案系統完成前一輪寫入，避免剛寫完版本/CNAME 就立刻讀 staged 狀態。
     Start-Sleep -Seconds 1
 
     $stagedFiles = git diff --cached --name-only
@@ -532,7 +546,7 @@ function Invoke-GitCommitIfNeeded {
       return $false
     }
 
-    git commit -m $commitMessage
+    git commit -m $finalCommitMessage
 
     if ($LASTEXITCODE -ne 0) {
       throw "git commit 失敗。"
@@ -540,7 +554,7 @@ function Invoke-GitCommitIfNeeded {
 
     Start-Sleep -Seconds 2
 
-    Write-Host "Git commit completed." -ForegroundColor Green
+    Write-Host "Git commit completed: $finalCommitMessage" -ForegroundColor Green
     return $true
   }
   finally {
@@ -1045,7 +1059,7 @@ if ($Action -eq 'ask') {
   Write-Host "[3] 本地確認，不部署 skhps 正式版"
   Write-Host "    = 1 + 2 + 確認本地已 commit；不推 origin/master、不 deploy skhps、不問備份"
   Write-Host "[PROD] deploy skhps 正式版"
-  Write-Host "    = 1 + 2 + 3 + 正式版；在這裡輸入 PROD 就是確認正式上線，不再二次詢問 PROD"
+  Write-Host "    = 1 + 2 + 3 + 正式版；在這裡輸入 PROD 就是確認正式上線；正式版 commit 固定使用預設值"
   Write-Host "[0] 取消"
 
   $actionChoices = @{
@@ -1162,6 +1176,21 @@ else {
 }
 $readmePath = Join-Path $rootPath 'README.md'
 
+# 集中輸入 commit 訊息：README 問完後一次問完，不要流程跑到一半才一直卡住等輸入。
+$devCommitMessage = ''
+$localOnlyCommitMessage = ''
+
+if ($needsDevSkhps -and -not $NoGitHubPrompt) {
+  $defaultDevCommitMessage = "Bump dev-skhps to v$version"
+  Write-Host ""
+  $devCommitMessage = Read-Host "測試版 Git commit message（直接按 Enter 使用 '$defaultDevCommitMessage'，輸入 skip 略過測試版 commit）"
+}
+
+if ($needsLocalCommitOnly -and -not $NoGitHubPrompt) {
+  Write-Host ""
+  $localOnlyCommitMessage = Read-Host "本地 Git commit message（直接按 Enter 使用 'Save local work'，輸入 skip 略過 commit）"
+}
+
 $devConfig = $null
 $prodConfig = $null
 
@@ -1204,7 +1233,7 @@ if ($needsDevSkhps) {
     "Update dev-skhps"
   }
 
-  Invoke-GitCommitIfNeeded -DefaultMessage $defaultMsg | Out-Null
+  Invoke-GitCommitIfNeeded -DefaultMessage $defaultMsg -CommitMessage $devCommitMessage | Out-Null
   $devPushSha = Get-GitHeadSha
 
   Write-Host ""
@@ -1263,7 +1292,7 @@ if ($needsLocalCommitOnly) {
     Write-Host "README version log skipped."
   }
 
-  Invoke-GitCommitIfNeeded -DefaultMessage "Save local work" | Out-Null
+  Invoke-GitCommitIfNeeded -DefaultMessage "Save local work" -CommitMessage $localOnlyCommitMessage | Out-Null
   Write-Host ""
   Write-Host "已完成 commit-only；未部署。" -ForegroundColor Green
 }
@@ -1304,7 +1333,7 @@ if ($needsSkhps) {
     Write-Host "略過正式 Apps Script API deployment；只 deploy skhps 前端。若真的要部署後端，請用 -DeployProdAppScript。" -ForegroundColor Yellow
   }
 
-  Invoke-GitCommitIfNeeded -DefaultMessage "Release skhps v$($prodConfig.Version)" | Out-Null
+  Invoke-GitCommitIfNeeded -DefaultMessage "Release skhps v$($prodConfig.Version)" -NoPrompt -AllowSkip $false | Out-Null
   $prodPushSha = Get-GitHeadSha
 
   Write-Host ""

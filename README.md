@@ -1,4 +1,4 @@
-# 新光整形外科科室系統
+﻿# 新光整形外科科室系統
 
 Plastic Surgery Department System
 
@@ -8,9 +8,9 @@ Google Apps Script × Google Sheets × GitHub
 
 # 當前版本號
 
-app script測試版: v2.37.0-202606051528
+app script測試版: v2.37.0-202606051533
 
-測試版: v2.37.0-202606051528
+測試版: v2.37.0-202606051533
 
 正式版: v2.37.0-202606051528
 
@@ -727,6 +727,7 @@ Design System 不只是樣式
 
 把資料變成系統
 ```
+
 
 
 
