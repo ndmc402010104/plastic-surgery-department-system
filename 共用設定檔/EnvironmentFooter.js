@@ -116,6 +116,11 @@ EnvironmentFooter.js
         gasUrl = appendParam(gasUrl, 'page', page);
       }
 
+      gasUrl = appendCurrentSearchParams(gasUrl, {
+        appEnv:true,
+        page:true
+      });
+
       return gasUrl + (location.hash || '');
     }
 
@@ -144,13 +149,106 @@ EnvironmentFooter.js
     }
 
     if(path === '/' || path.indexOf('/macros/') >= 0){
-      path = '/';
+      path = getWebPathForGasPage(getGasPageParam()) || '/';
     }
 
-    return origin.replace(/\/+$/, '') + path + (location.hash || '');
+    return composeWebTargetUrl(
+      origin,
+      path,
+      getCurrentSearchString({
+        appEnv:true,
+        page:true
+      })
+    );
+  }
+
+  function composeWebTargetUrl(origin, path, search){
+    var routeHash = '';
+    var hashIndex = path.indexOf('#');
+
+    if(hashIndex >= 0){
+      routeHash = path.slice(hashIndex);
+      path = path.slice(0, hashIndex);
+    }
+
+    return origin.replace(/\/+$/, '') +
+      path +
+      (search || '') +
+      (routeHash || location.hash || '');
+  }
+
+  function getCurrentSearchString(excludedKeys){
+    var search = String(location.search || '');
+
+    if(!search || typeof URLSearchParams === 'undefined'){
+      return '';
+    }
+
+    var params = new URLSearchParams(search);
+    var parts = [];
+
+    params.forEach(function(value, key){
+      if(excludedKeys && excludedKeys[key]){
+        return;
+      }
+
+      parts.push(
+        encodeURIComponent(key) + '=' + encodeURIComponent(value)
+      );
+    });
+
+    return parts.length ? '?' + parts.join('&') : '';
+  }
+
+  function appendCurrentSearchParams(url, excludedKeys){
+    var search = getCurrentSearchString(excludedKeys);
+
+    if(!search){
+      return url;
+    }
+
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + search.slice(1);
+  }
+
+  function getSearchPageParam(){
+    var search = String(location.search || '');
+
+    if(!search || typeof URLSearchParams === 'undefined'){
+      return '';
+    }
+
+    return String(new URLSearchParams(search).get('page') || '');
+  }
+
+  function getWebPathForGasPage(page){
+    var key = String(page || '').toLowerCase();
+    var routes = {
+      signmeeting:'科室系統用戶端/SignMeeting.html',
+      signqr:'科室系統用戶端/SignQRGenerator.html',
+      hospitalsignin:'科室系統用戶端/HospitalSignIn.html',
+      dressingfront:'敷料領用登錄系統/DressingFront.html',
+      dressinguse:'敷料領用登錄系統/DressingUse.html',
+      dressingdict:'敷料領用登錄系統/DressingFront.html#dressingDict',
+      uitest:'共用設定檔/UI設定/99_文件/skh-ui-test-page.html'
+    };
+
+    return routes[key] || '';
   }
 
   function getGasPageParam(){
+    var pageParam = getSearchPageParam();
+
+    if(pageParam){
+      return pageParam;
+    }
+
+    var hash =
+      String(location.hash || '').toLowerCase();
+
+    if(hash.indexOf('dressingdict') >= 0){
+      return 'dressingdict';
+    }
+
     var path =
       String(location.pathname || '').toLowerCase();
 
