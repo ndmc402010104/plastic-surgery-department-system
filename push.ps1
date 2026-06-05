@@ -1,5 +1,9 @@
-﻿param(
-  [ValidateSet('ask','push','push-github','deploy')]
+﻿# 檔案位置：專案根目錄/push.ps1
+# 時間戳記：2026-06-05 08:25 UTC+8
+# 用途：三段式部署腳本；支援 dev-app script、dev-skhps、skhps 分流，避免測試版誤推正式站。
+
+param(
+  [ValidateSet('ask','dev-app','dev-skhps','skhps','dev-all','release','commit-only','push','push-github','deploy')]
   [string]$Action = 'ask',
 
   [ValidateSet('ask','major','minor','patch','none')]
@@ -11,19 +15,17 @@
 
   [switch]$NoReadmePrompt,
 
-  [switch]$NoGitHubPrompt
+  [switch]$NoGitHubPrompt,
+
+  # 非互動模式需要直接部署正式 Apps Script API 時才使用。
+  [switch]$DeployProdAppScript
 )
 
 chcp 65001 | Out-Null
 
-[Console]::InputEncoding =
-  [System.Text.UTF8Encoding]::new()
-
-[Console]::OutputEncoding =
-  [System.Text.UTF8Encoding]::new()
-
-$OutputEncoding =
-  [System.Text.UTF8Encoding]::new()
+[Console]::InputEncoding = [System.Text.UTF8Encoding]::new()
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 $ErrorActionPreference = 'Stop'
 
@@ -101,8 +103,7 @@ function Read-YesNo {
 function Request-ManualSaveBeforeContinue {
   Write-Host "無法自動儲存，請先在 VS Code 手動儲存檔案。" -ForegroundColor Yellow
 
-  $continue =
-    Read-Host "手動儲存後按 Enter 繼續；輸入 N 取消"
+  $continue = Read-Host "手動儲存後按 Enter 繼續；輸入 N 取消"
 
   if ($continue -match '^[Nn]$') {
     Write-Host "已取消" -ForegroundColor Red
@@ -191,7 +192,6 @@ function Get-ClaspVersionNumberFromOutput {
   throw "無法從 clasp 輸出解析 Apps Script version number：$($Output -join ' ')"
 }
 
-
 function Format-ReadmeVersionText {
   param(
     [string]$Version
@@ -227,9 +227,7 @@ function Update-ReadmeCurrentVersions {
     return $false
   }
 
-  $content =
-    Get-Content -Path $ReadmePath -Raw -Encoding UTF8
-
+  $content = Get-Content -Path $ReadmePath -Raw -Encoding UTF8
   $updated = $content
 
   if (-not [string]::IsNullOrWhiteSpace($ProdVersion)) {
@@ -269,54 +267,108 @@ function Update-ReadmeCurrentVersions {
   return $false
 }
 
-
-function Push-GitHubIfRequested {
+function Test-GitRemoteExists {
   param(
-    [pscustomobject]$Config,
-    [string]$Action,
-    [string]$ReadmePath
+    [Parameter(Mandatory = $true)]
+    [string]$RemoteName
   )
 
-  if ($NoGitHubPrompt -or $Action -eq 'push') {
-    if ($Action -eq 'push') {
-      Write-Host ""
-      Write-Host "依據選項，略過上傳 GitHub。" -ForegroundColor Yellow
-    }
+  if (-not (Test-CommandExists -Name 'git')) {
+    throw "找不到 git 指令。"
+  }
+
+  Push-Location -LiteralPath $rootPath
+
+  try {
+    $remotes = @(git remote)
+  }
+  finally {
+    Pop-Location
+  }
+
+  return $remotes -contains $RemoteName
+}
+
+function Get-GitCurrentBranch {
+  Push-Location -LiteralPath $rootPath
+
+  try {
+    $branch = (git branch --show-current).Trim()
+  }
+  finally {
+    Pop-Location
+  }
+
+  if ([string]::IsNullOrWhiteSpace($branch)) {
+    return '(detached HEAD)'
+  }
+
+  return $branch
+}
+
+function Show-GitSnapshot {
+  if (-not (Test-CommandExists -Name 'git')) {
+    Write-Host "找不到 git 指令，略過 Git 狀態顯示。" -ForegroundColor Yellow
     return
+  }
+
+  Push-Location -LiteralPath $rootPath
+
+  try {
+    Write-Host ""
+    Write-Host "==========================" -ForegroundColor Cyan
+    Write-Host "Git 狀態" -ForegroundColor Cyan
+    Write-Host "==========================" -ForegroundColor Cyan
+
+    $branch = Get-GitCurrentBranch
+    Write-Host "目前 branch: $branch" -ForegroundColor Yellow
+
+    Write-Host ""
+    Write-Host "remote -v:" -ForegroundColor Yellow
+    git remote -v
+
+    Write-Host ""
+    Write-Host "git status --short:" -ForegroundColor Yellow
+    git status --short
+  }
+  finally {
+    Pop-Location
+  }
+}
+
+function Invoke-GitCommitIfNeeded {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$DefaultMessage
+  )
+
+  if ($NoGitHubPrompt) {
+    Write-Host ""
+    Write-Host "NoGitHubPrompt 已啟用，略過 Git commit。" -ForegroundColor Yellow
+    return $false
+  }
+
+  if (-not (Test-CommandExists -Name 'git')) {
+    throw "找不到 git 指令，無法 commit。"
   }
 
   Write-Host ""
   Write-Host "==========================" -ForegroundColor Cyan
-  Write-Host "GitHub commit" -ForegroundColor Cyan
+  Write-Host "Git commit" -ForegroundColor Cyan
   Write-Host "=========================="
-  Write-Host "自動將最新版號與 API 網址同步至 GitHub。"
 
-  $defaultMsg = if ($Config) { "Bump version to v$($Config.Version)" } else { "Update version" }
-  
-  $commitMessage =
-    Read-Host "Git commit message（直接按 Enter 使用 '$defaultMsg'，輸入 skip 略過）"
+  $commitMessage = Read-Host "Git commit message（直接按 Enter 使用 '$DefaultMessage'，輸入 skip 略過 commit）"
 
   if ($commitMessage.Trim().ToLower() -eq 'skip') {
-    Write-Host ""
-    Write-Host "已略過 GitHub commit" -ForegroundColor Yellow
-    return
+    Write-Host "已略過 Git commit。" -ForegroundColor Yellow
+    return $false
   }
 
   if ([string]::IsNullOrWhiteSpace($commitMessage)) {
-    $commitMessage = $defaultMsg
+    $commitMessage = $DefaultMessage
   }
 
-  if ($Config -and $ReadmePath) {
-    Update-ReadmeCurrentVersions `
-      -ReadmePath $ReadmePath `
-      -GitHubVersion $Config.Version | Out-Null
-  }
-
-  if (-not (Test-CommandExists -Name 'git')) {
-    throw "找不到 git 指令，無法 commit 到 GitHub。"
-  }
-
-  Push-Location $rootPath
+  Push-Location -LiteralPath $rootPath
 
   try {
     git add .
@@ -325,7 +377,7 @@ function Push-GitHubIfRequested {
       throw "git add 失敗。"
     }
 
-    # 加入延遲讓 OneDrive 有時間解除暫存檔鎖定
+    # OneDrive 有時候會短暫鎖檔，保留延遲。
     Start-Sleep -Seconds 1
 
     $stagedFiles = git diff --cached --name-only
@@ -335,9 +387,8 @@ function Push-GitHubIfRequested {
     }
 
     if (-not $stagedFiles) {
-      Write-Host ""
-      Write-Host "沒有 staged 變更，已略過 GitHub commit。" -ForegroundColor Yellow
-      return
+      Write-Host "沒有 staged 變更，略過 commit；後續仍可 push 目前 HEAD。" -ForegroundColor Yellow
+      return $false
     }
 
     git commit -m $commitMessage
@@ -346,27 +397,228 @@ function Push-GitHubIfRequested {
       throw "git commit 失敗。"
     }
 
-    # 加入延遲讓 OneDrive 有時間解除暫存檔鎖定
     Start-Sleep -Seconds 2
 
-    git push
-
-    if ($LASTEXITCODE -ne 0) {
-      Write-Host ""
-      Write-Host "git push 發生錯誤。如果遇到終端機權限或版本分歧問題，請嘗試手動執行：" -ForegroundColor Yellow
-      Write-Host "git push -f origin master" -ForegroundColor Cyan
-      throw "git push 失敗。"
-    }
-
-    Write-Host ""
-    Write-Host "GitHub updated" -ForegroundColor Green
+    Write-Host "Git commit completed." -ForegroundColor Green
+    return $true
   }
   finally {
     Pop-Location
   }
 }
 
+function Invoke-GitPush {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RemoteName,
+
+    [Parameter(Mandatory = $true)]
+    [string]$RefSpec,
+
+    [Parameter(Mandatory = $true)]
+    [string]$SiteName,
+
+    [Parameter(Mandatory = $true)]
+    [string]$SiteUrl
+  )
+
+  if ($NoGitHubPrompt) {
+    Write-Host "NoGitHubPrompt 已啟用，略過 $SiteName Git push。" -ForegroundColor Yellow
+    return
+  }
+
+  if (-not (Test-GitRemoteExists -RemoteName $RemoteName)) {
+    if ($RemoteName -eq 'dev') {
+      Write-Host "尚未設定 dev remote。" -ForegroundColor Red
+      Write-Host "請先執行：" -ForegroundColor Yellow
+      Write-Host "git remote add dev https://github.com/ndmc402010104/skhps-system-dev.git" -ForegroundColor Cyan
+    }
+    elseif ($RemoteName -eq 'origin') {
+      Write-Host "尚未設定 origin remote，正式版無法推送。" -ForegroundColor Red
+    }
+    else {
+      Write-Host "尚未設定 $RemoteName remote。" -ForegroundColor Red
+    }
+
+    throw "找不到 Git remote: $RemoteName"
+  }
+
+  Push-Location -LiteralPath $rootPath
+
+  try {
+    Write-Host ""
+    Write-Host "推送 $SiteName：git push $RemoteName $RefSpec" -ForegroundColor Cyan
+    git push $RemoteName $RefSpec
+
+    if ($LASTEXITCODE -ne 0) {
+      throw "$SiteName 推送失敗。"
+    }
+
+    Write-Host "$SiteName 推送完成：$SiteUrl" -ForegroundColor Green
+  }
+  finally {
+    Pop-Location
+  }
+}
+
+function Confirm-ProdPushOrExit {
+  Write-Host ""
+  Write-Host "你即將推送正式版 skhps.jonaminz.com。" -ForegroundColor Red
+  Write-Host "正式版只能從 main 分支推送。" -ForegroundColor Yellow
+
+  $branch = Get-GitCurrentBranch
+
+  if ($branch -ne 'main') {
+    throw "目前分支是 '$branch'，正式版只能從 main 分支推送。請先 merge 回 main。"
+  }
+
+  $confirm = Read-Host "請輸入 PROD 才繼續"
+
+  if ($confirm -ne 'PROD') {
+    throw "未輸入 PROD，已取消正式版推送。"
+  }
+}
+
+function Invoke-UpdateDressingFrontForConfig {
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Config
+  )
+
+  $dressingFrontPath = Join-Path $rootPath '敷料領用登錄系統\DressingFront.html'
+
+  if (-not (Test-Path -LiteralPath $dressingFrontPath)) {
+    Write-Host "找不到 DressingFront.html，略過 GitHub 版號與 API URL 自動更新。" -ForegroundColor Yellow
+    return
+  }
+
+  $dfContent = Get-Content -Path $dressingFrontPath -Raw -Encoding UTF8
+  $dfNewContent = [regex]::Replace(
+    $dfContent,
+    '(<span[^>]*>GitHub 版</span>\s*<span>v\.)[^<]+(</span>)',
+    "`${1}$($Config.Version)`$2"
+  )
+
+  # 自動寫入真實的 Apps Script API 部署網址。
+  # dev-skhps 使用 dev DeploymentId；skhps 使用 EntryUrl / prod config。
+  if ($Config.DeploymentId) {
+    $realUrl = "https://script.google.com/macros/s/$($Config.DeploymentId)/exec"
+    $dfNewContent = [regex]::Replace(
+      $dfNewContent,
+      "(APP_ENTRY_URL\s*=\s*')https://script\.google\.com/macros/s/[^/']+/exec(')",
+      "`${1}$realUrl`$2"
+    )
+    $dfNewContent = [regex]::Replace(
+      $dfNewContent,
+      "(APP_PROD_URL\s*=\s*')https://script\.google\.com/macros/s/[^/']+/exec(')",
+      "`${1}$($Config.EntryUrl)`$2"
+    )
+  }
+
+  if ($dfContent -cne $dfNewContent) {
+    Set-Content -Path $dressingFrontPath -Value $dfNewContent -Encoding UTF8
+    Write-Host "Updated GitHub version & API URL in DressingFront.html to v.$($Config.Version)" -ForegroundColor Green
+  }
+}
+
+function Invoke-SyncVersionForEnv {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$DefaultEnv,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Version,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ReadmePath,
+
+    [bool]$UpdateProdVersion = $false,
+
+    [bool]$UpdateTestVersion = $false,
+
+    [bool]$UpdateGitHubVersion = $false
+  )
+
+  $appConfig = Sync-AppVersion `
+    -RootPath $rootPath `
+    -Version $Version `
+    -DefaultEnv $DefaultEnv
+
+  $prodVersionForReadme = if ($UpdateProdVersion) { $appConfig.Version } else { $null }
+  $testVersionForReadme = if ($UpdateTestVersion) { $appConfig.Version } else { $null }
+  $githubVersionForReadme = if ($UpdateGitHubVersion) { $appConfig.Version } else { $null }
+
+  Update-ReadmeCurrentVersions `
+    -ReadmePath $ReadmePath `
+    -ProdVersion $prodVersionForReadme `
+    -TestVersion $testVersionForReadme `
+    -GitHubVersion $githubVersionForReadme | Out-Null
+
+  Invoke-UpdateDressingFrontForConfig -Config $appConfig
+
+  Write-Host "APP_VERSION synced for env=$DefaultEnv：v$($appConfig.Version)" -ForegroundColor Green
+  Write-Host "Synced .clasp.json scriptId to $($appConfig.ScriptId)" -ForegroundColor DarkGray
+
+  return $appConfig
+}
+
+function Invoke-DevAppScript {
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Config
+  )
+
+  Write-Host ""
+  Write-Host "==========================" -ForegroundColor Cyan
+  Write-Host "[1] dev-app script" -ForegroundColor Cyan
+  Write-Host "=========================="
+  Write-Host "Pushing source files to Apps Script dev project"
+
+  Invoke-Clasp -Arguments @('push') -WorkingDirectory $rootPath
+
+  Write-Host "dev-app script push completed with version $($Config.Description)" -ForegroundColor Green
+}
+
+function Invoke-ProdAppScriptDeploy {
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Config
+  )
+
+  if (-not $Config.DeploymentId) {
+    throw 'Config.js 找不到 DEPLOYMENT_ID，無法部署正式 Apps Script API。'
+  }
+
+  $description = $Config.Description
+
+  Write-Host ""
+  Write-Host "==========================" -ForegroundColor Cyan
+  Write-Host "正式 Apps Script API deployment" -ForegroundColor Cyan
+  Write-Host "=========================="
+  Write-Host "Creating Apps Script version $description"
+
+  $versionOutput = Invoke-ClaspCapture -Arguments @('version', $description)
+  $versionNumber = Get-ClaspVersionNumberFromOutput -Output $versionOutput
+
+  Write-Host "Updating deployment $($Config.DeploymentId) to version $versionNumber"
+
+  Invoke-Clasp `
+    -Arguments @(
+      'deploy',
+      '-i',
+      $Config.DeploymentId,
+      '-V',
+      [string]$versionNumber,
+      '-d',
+      $description
+    ) `
+    -WorkingDirectory $rootPath
+
+  Write-Host "Apps Script prod deploy completed with $description at version $versionNumber" -ForegroundColor Green
+}
+
 Save-AllOpenFiles
+Show-GitSnapshot
 
 Write-Host ""
 Write-Host "==========================" -ForegroundColor Cyan
@@ -374,8 +626,7 @@ Write-Host "目前版本狀態" -ForegroundColor Cyan
 Write-Host "==========================" -ForegroundColor Cyan
 
 try {
-  $currentVersionBeforePush =
-    Get-CurrentAppVersion -RootPath $rootPath
+  $currentVersionBeforePush = Get-CurrentAppVersion -RootPath $rootPath
 
   Write-Host ""
   Write-Host "開發版(APP_VERSION)" -ForegroundColor Yellow
@@ -388,33 +639,14 @@ catch {
 }
 
 try {
-  $previewReadmePath =
-    Join-Path $rootPath 'README.md'
+  $previewReadmePath = Join-Path $rootPath 'README.md'
 
   if (Test-Path -LiteralPath $previewReadmePath) {
-    $previewReadme =
-      Get-Content `
-        -Path $previewReadmePath `
-        -Raw `
-        -Encoding UTF8
+    $previewReadme = Get-Content -Path $previewReadmePath -Raw -Encoding UTF8
 
-    $previewProdVersion =
-      ([regex]::Match(
-        $previewReadme,
-        '(?m)^正式版\s*[:：]\s*(.+)$'
-      )).Groups[1].Value.Trim()
-
-    $previewTestVersion =
-      ([regex]::Match(
-        $previewReadme,
-        '(?m)^測試版\s*[:：]\s*(.+)$'
-      )).Groups[1].Value.Trim()
-
-    $previewGitHubVersion =
-      ([regex]::Match(
-        $previewReadme,
-        '(?m)^Github\s*[:：]\s*(.+)$'
-      )).Groups[1].Value.Trim()
+    $previewProdVersion = ([regex]::Match($previewReadme, '(?m)^正式版\s*[:：]\s*(.+)$')).Groups[1].Value.Trim()
+    $previewTestVersion = ([regex]::Match($previewReadme, '(?m)^測試版\s*[:：]\s*(.+)$')).Groups[1].Value.Trim()
+    $previewGitHubVersion = ([regex]::Match($previewReadme, '(?m)^Github\s*[:：]\s*(.+)$')).Groups[1].Value.Trim()
 
     if ([string]::IsNullOrWhiteSpace($previewProdVersion)) {
       $previewProdVersion = 'README 未填'
@@ -445,29 +677,71 @@ catch {
   Write-Host "README版本讀取失敗：$($_.Exception.Message)" -ForegroundColor Red
 }
 
-Write-Host ""
-
 if ($env:APP_VERSION_BUMP) {
   $Bump = $env:APP_VERSION_BUMP
 }
 
+# 舊參數相容：
+# push        -> dev-app script
+# push-github -> dev-app script + dev-skhps
+# deploy      -> skhps；並預設啟用正式 Apps Script API deploy
+$legacyDeployRequested = $false
+
+switch ($Action) {
+  'push' {
+    $Action = 'dev-app'
+  }
+  'push-github' {
+    $Action = 'dev-all'
+  }
+  'deploy' {
+    $Action = 'skhps'
+    $legacyDeployRequested = $true
+    $DeployProdAppScript = $true
+  }
+}
+
 if ($Action -eq 'ask') {
   Write-Host ""
+  Write-Host "三段式部署目標：" -ForegroundColor Cyan
+  Write-Host "[1] dev-app script  = Apps Script 後端功能測試 / clasp push"
+  Write-Host "[2] dev-skhps       = 測試版前端 https://dev-skhps.jonaminz.com / git push dev HEAD:main"
+  Write-Host "[3] skhps           = 正式版前端 https://skhps.jonaminz.com / git push origin main，需要 PROD"
+  Write-Host "[4] 1 + 2           = 後端測試 + 前端測試"
+  Write-Host "[5] 2 + 3           = 先測試網站，再正式網站"
+  Write-Host "[6] 1 + 2 + 3       = 全部；正式仍需 PROD"
+  Write-Host "[7] 只 commit，不部署"
+  Write-Host "[0] 取消"
+
   $Action = Read-MenuChoice `
-    -Message "這次要做什麼？1=僅推送測試版(不傳GitHub)，2=推送測試版並傳GitHub，3=Deploy正式版(傳GitHub) [1]" `
+    -Message "請選擇 [1]" `
     -Choices @{
-      '1' = 'push'
-      '2' = 'push-github'
-      '3' = 'deploy'
-      'p' = 'push'
-      'push' = 'push'
-      'pg' = 'push-github'
-      'push-github' = 'push-github'
-      'd' = 'deploy'
-      'deploy' = 'deploy'
-      'prod' = 'deploy'
+      '1' = 'dev-app'
+      'dev-app' = 'dev-app'
+      'app' = 'dev-app'
+      '2' = 'dev-skhps'
+      'dev-skhps' = 'dev-skhps'
+      'dev' = 'dev-skhps'
+      '3' = 'skhps'
+      'skhps' = 'skhps'
+      'prod' = 'skhps'
+      '4' = 'dev-all'
+      'dev-all' = 'dev-all'
+      '5' = 'release'
+      'release' = 'release'
+      '6' = 'all'
+      'all' = 'all'
+      '7' = 'commit-only'
+      'commit-only' = 'commit-only'
+      '0' = 'cancel'
+      'cancel' = 'cancel'
     } `
-    -Default 'push'
+    -Default 'dev-app'
+}
+
+if ($Action -eq 'cancel') {
+  Write-Host "已取消。" -ForegroundColor Yellow
+  exit 0
 }
 
 if ($Bump -eq 'ask') {
@@ -488,7 +762,6 @@ if ($Bump -eq 'ask') {
 }
 
 $defaultReadme = $Bump -in @('minor','major')
-
 $writeReadme = $false
 
 if (-not $NoReadmePrompt) {
@@ -507,113 +780,138 @@ if ($writeReadme -and -not ($Note -and ($Note -join '').Trim())) {
 
 $sourceVersion = Get-CurrentAppVersion -RootPath $rootPath
 $version = New-AppVersion -RootPath $rootPath -Bump $Bump
-$defaultEnv = if ($Action -eq 'deploy') { 'prod' } else { 'dev' }
+$readmePath = Join-Path $rootPath 'README.md'
 
-$appConfig =
-  Sync-AppVersion `
+$needsDevApp = $Action -in @('dev-app','dev-all','all')
+$needsDevSkhps = $Action -in @('dev-skhps','dev-all','release','all')
+$needsSkhps = $Action -in @('skhps','release','all')
+$needsAnyGit = $Action -in @('dev-skhps','dev-all','skhps','release','all','commit-only')
+
+# skhps 正式版若不是舊 deploy 參數，互動詢問是否一併部署正式 Apps Script API。
+if ($needsSkhps -and -not $legacyDeployRequested -and -not $DeployProdAppScript) {
+  Write-Host ""
+  $DeployProdAppScript = Read-YesNo -Message "這次 skhps 正式上線要同時部署正式 Apps Script API 嗎？通常只有後端 API 有改才需要" -Default $false
+}
+
+$devConfig = $null
+$prodConfig = $null
+
+if ($needsDevApp -or $needsDevSkhps) {
+  $devConfig = Invoke-SyncVersionForEnv `
+    -DefaultEnv 'dev' `
+    -Version $version `
+    -ReadmePath $readmePath `
+    -UpdateTestVersion $true `
+    -UpdateGitHubVersion $needsDevSkhps
+}
+
+if ($writeReadme -and ($needsDevApp -or $needsDevSkhps)) {
+  $readmeUpdated = Update-ReadmeVersionLog `
     -RootPath $rootPath `
     -Version $version `
-    -DefaultEnv $defaultEnv
+    -ReleaseType 'dev' `
+    -SourceVersion $sourceVersion `
+    -Notes $Note
 
-$readmePath =
-  Join-Path $rootPath 'README.md'
-
-$prodVersionForReadme = $null
-if ($Action -eq 'deploy') {
-  $prodVersionForReadme = $appConfig.Version
-}
-
-Update-ReadmeCurrentVersions `
-  -ReadmePath $readmePath `
-  -ProdVersion $prodVersionForReadme `
-  -TestVersion $appConfig.Version | Out-Null
-
-# 自動更新 DressingFront.html 中的 GitHub 版號
-$dressingFrontPath = Join-Path $rootPath '敷料領用登錄系統\DressingFront.html'
-if (Test-Path -LiteralPath $dressingFrontPath) {
-  $dfContent = Get-Content -Path $dressingFrontPath -Raw -Encoding UTF8
-  $dfNewContent = [regex]::Replace($dfContent, '(<span[^>]*>GitHub 版</span>\s*<span>v\.)[^<]+(</span>)', "`${1}$($appConfig.Version)`$2")
-  
-  # 自動寫入真實的 Apps Script API 部署網址
-  if ($appConfig.DeploymentId) {
-    $realUrl = "https://script.google.com/macros/s/$($appConfig.DeploymentId)/exec"
-    $dfNewContent = [regex]::Replace($dfNewContent, "(APP_ENTRY_URL\s*=\s*')https://script\.google\.com/macros/s/[^/']+/exec(')", "`${1}$realUrl`$2")
-    $dfNewContent = [regex]::Replace($dfNewContent, "(APP_PROD_URL\s*=\s*')https://script\.google\.com/macros/s/[^/']+/exec(')", "`${1}$($appConfig.EntryUrl)`$2")
+  if ($readmeUpdated) {
+    Write-Host "README version log updated with $($devConfig.Description)"
   }
-
-  if ($dfContent -cne $dfNewContent) {
-    Set-Content -Path $dressingFrontPath -Value $dfNewContent -Encoding UTF8
-    Write-Host "Updated GitHub version & API URL in DressingFront.html to v.$($appConfig.Version)" -ForegroundColor Green
+  else {
+    Write-Host "README already contains $($devConfig.Description)"
   }
 }
-
-if ($writeReadme) {
-  $releaseType = if ($Action -eq 'deploy') { 'prod' } else { 'dev' }
-
-  $readmeUpdated =
-    Update-ReadmeVersionLog `
-      -RootPath $rootPath `
-      -Version $version `
-      -ReleaseType $releaseType `
-      -SourceVersion $sourceVersion `
-      -Notes $Note
-}
-else {
-  $readmeUpdated = $false
-}
-
-Write-Host "APP_VERSION updated from $sourceVersion to $($appConfig.Version)"
-
-if ($writeReadme -and $readmeUpdated) {
-  Write-Host "README version log updated with $($appConfig.Description)"
-}
-elseif ($writeReadme) {
-  Write-Host "README already contains $($appConfig.Description)"
+elseif ($writeReadme -and -not ($needsDevApp -or $needsDevSkhps)) {
+  Write-Host "README version log for dev skipped because no dev target selected." -ForegroundColor Yellow
 }
 else {
   Write-Host "README version log skipped."
 }
 
-Write-Host "Synced .clasp.json scriptId to $($appConfig.ScriptId)"
-Write-Host "Pushing source files to Apps Script"
+if ($needsDevApp) {
+  Invoke-DevAppScript -Config $devConfig
+}
 
-Invoke-Clasp -Arguments @('push') -WorkingDirectory $rootPath
-
-if ($Action -eq 'deploy') {
-  if (-not $appConfig.DeploymentId) {
-    throw 'Config.js 找不到 DEPLOYMENT_ID'
+if ($needsAnyGit) {
+  $defaultMsg = if ($devConfig) {
+    "Bump version to v$($devConfig.Version)"
+  }
+  else {
+    "Update project"
   }
 
-  $description = $appConfig.Description
-
-  Write-Host "Creating Apps Script version $description"
-
-  $versionOutput =
-    Invoke-ClaspCapture `
-      -Arguments @('version', $description)
-
-  $versionNumber =
-    Get-ClaspVersionNumberFromOutput `
-      -Output $versionOutput
-
-  Write-Host "Updating deployment $($appConfig.DeploymentId) to version $versionNumber"
-
-  Invoke-Clasp `
-    -Arguments @(
-      'deploy',
-      '-i',
-      $appConfig.DeploymentId,
-      '-V',
-      [string]$versionNumber,
-      '-d',
-      $description
-    ) `
-    -WorkingDirectory $rootPath
-
-  Write-Host "Deploy completed with $description at Apps Script version $versionNumber"
-}
-else {
-  Write-Host "Push completed with version $($appConfig.Description)"
+  Invoke-GitCommitIfNeeded -DefaultMessage $defaultMsg | Out-Null
 }
 
-Push-GitHubIfRequested -Config $appConfig -Action $Action -ReadmePath $readmePath
+if ($needsDevSkhps) {
+  Write-Host ""
+  Write-Host "==========================" -ForegroundColor Cyan
+  Write-Host "[2] dev-skhps" -ForegroundColor Cyan
+  Write-Host "=========================="
+  Write-Host "測試版允許目前 HEAD 推到 dev repo main，避免中文/臨時分支名稱造成 refspec 錯誤。"
+
+  Invoke-GitPush `
+    -RemoteName 'dev' `
+    -RefSpec 'HEAD:main' `
+    -SiteName 'dev-skhps' `
+    -SiteUrl 'https://dev-skhps.jonaminz.com'
+}
+
+if ($needsSkhps) {
+  Confirm-ProdPushOrExit
+
+  $prodConfig = Invoke-SyncVersionForEnv `
+    -DefaultEnv 'prod' `
+    -Version $version `
+    -ReadmePath $readmePath `
+    -UpdateProdVersion $true `
+    -UpdateGitHubVersion $true
+
+  if ($writeReadme) {
+    $readmeUpdated = Update-ReadmeVersionLog `
+      -RootPath $rootPath `
+      -Version $version `
+      -ReleaseType 'prod' `
+      -SourceVersion $sourceVersion `
+      -Notes $Note
+
+    if ($readmeUpdated) {
+      Write-Host "README version log updated with $($prodConfig.Description)"
+    }
+    else {
+      Write-Host "README already contains $($prodConfig.Description)"
+    }
+  }
+
+  if ($DeployProdAppScript) {
+    Invoke-ProdAppScriptDeploy -Config $prodConfig
+  }
+  else {
+    Write-Host "略過正式 Apps Script API deployment，只推送 skhps 前端。" -ForegroundColor Yellow
+  }
+
+  Invoke-GitCommitIfNeeded -DefaultMessage "Release skhps v$($prodConfig.Version)" | Out-Null
+
+  Write-Host ""
+  Write-Host "==========================" -ForegroundColor Cyan
+  Write-Host "[3] skhps" -ForegroundColor Cyan
+  Write-Host "=========================="
+
+  Invoke-GitPush `
+    -RemoteName 'origin' `
+    -RefSpec 'main:main' `
+    -SiteName 'skhps' `
+    -SiteUrl 'https://skhps.jonaminz.com'
+}
+
+if ($Action -eq 'commit-only') {
+  Write-Host ""
+  Write-Host "已完成 commit-only 流程，未部署。" -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "==========================" -ForegroundColor Cyan
+Write-Host "完成" -ForegroundColor Green
+Write-Host "==========================" -ForegroundColor Cyan
+Write-Host "dev-app script : Apps Script 後端功能測試"
+Write-Host "dev-skhps      : https://dev-skhps.jonaminz.com"
+Write-Host "skhps          : https://skhps.jonaminz.com"
