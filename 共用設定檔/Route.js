@@ -539,6 +539,15 @@ function getVersionBadgeHtml(options){
 }
 
 function getSharedEnvironmentFooterHtml_(showCalendarSource){
+  const footerScriptUrl =
+    (
+      APP_REQUEST_ENV === 'dev'
+        ? 'https://dev-skhps.jonaminz.com'
+        : 'https://skhps.jonaminz.com'
+    ) +
+    '/%E5%85%B1%E7%94%A8%E8%A8%AD%E5%AE%9A%E6%AA%94/EnvironmentFooter.js?v=' +
+    encodeURIComponent(APP_VERSION || '');
+
   const calendarSourceScript =
     showCalendarSource
     ? [
@@ -552,9 +561,9 @@ function getSharedEnvironmentFooterHtml_(showCalendarSource){
 
   return [
     calendarSourceScript,
-    '<script data-skh-environment-footer-script="true">',
-    include('共用設定檔/EnvironmentFooter'),
-    '</script>'
+    '<script src="',
+    escapeAppHtml(footerScriptUrl),
+    '" data-skh-environment-footer-script="true" data-skh-environment-footer="1" defer></script>'
   ].join('');
 }
 
