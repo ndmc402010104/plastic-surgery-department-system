@@ -1,6 +1,6 @@
 /*
 檔案位置：共用設定檔/EnvironmentFooter.js
-時間戳記：2026-06-06 10:32 UTC+8
+時間戳記：2026-06-06 11:16 UTC+8
 用途：全站三段式環境頁尾；提供三段式環境切換、集中 API URL 設定與 GitHub Pages 跨環境版本摘要。
 */
 
@@ -34,22 +34,25 @@
     gasDev:{
       key:'gasDev',
       label:'app script測試版',
+      shortLabel:'AS 測試',
       url:'https://script.google.com/macros/s/AKfycbwySlDY2aAbYpy5OSi85vHz1pk5g1FQfopcaCfVneE/dev',
       apiUrl:'https://script.google.com/macros/s/AKfycbwySlDY2aAbYpy5OSi85vHz1pk5g1FQfopcaCfVneE/dev',
-      version:'v2.37.0-202606061105',
+      version:'v2.37.0-202606061115',
       type:'gas'
     },
     webDev:{
       key:'webDev',
       label:'測試版',
+      shortLabel:'測試版',
       url:'https://dev-skhps.jonaminz.com',
       apiUrl:'https://script.google.com/macros/s/AKfycbwySlDY2aAbYpy5OSi85vHz1pk5g1FQfopcaCfVneE/dev',
-      version:'v2.37.0-202606061105',
+      version:'v2.37.0-202606061115',
       type:'web'
     },
     webProd:{
       key:'webProd',
       label:'正式版',
+      shortLabel:'正式版',
       url:'https://skhps.jonaminz.com',
       apiUrl:'https://script.google.com/macros/s/AKfycbwbz8pXfU68j2aFeF_AaDmmG6Vco3JsPSw-PGyYeLu0AF3vCfzaZJQFOjORnwSw8Xp4/exec',
       version:'v2.37.0-202606051528',
@@ -72,11 +75,12 @@
     style.textContent =
       '.appVersionFooter{position:fixed;left:0;right:0;bottom:0;z-index:10000;min-height:42px;display:flex;align-items:center;justify-content:center;padding:6px 12px;box-sizing:border-box;background:rgba(248,251,255,.94);border-top:1px solid rgba(148,163,184,.38);box-shadow:0 -8px 24px rgba(15,23,42,.08);backdrop-filter:blur(10px);}' +
       '.appVersionSegment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:min(1120px,calc(100vw - 24px));min-width:0;padding:3px;border:1px solid rgba(148,163,184,.38);border-radius:999px;background:rgba(226,232,240,.65);}' +
-      '.appVersionBadge{display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;gap:7px;min-width:0;min-height:28px;padding:5px 12px;border:1px solid transparent;border-radius:999px;background:transparent;color:#475569;font-size:11px;font-weight:800;line-height:1.1;text-decoration:none;white-space:nowrap;cursor:pointer;transition:color .16s ease,border-color .16s ease,background-color .16s ease,box-shadow .16s ease;}' +
+      '.appVersionBadge{display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;gap:7px;min-width:0;max-width:100%;min-height:28px;padding:5px 12px;border:1px solid transparent;border-radius:999px;background:transparent;color:#475569;font-size:11px;font-weight:800;line-height:1.1;text-align:center;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:color .16s ease,border-color .16s ease,background-color .16s ease,box-shadow .16s ease;}' +
       '.appVersionBadge:hover{color:#1d4ed8;background:rgba(255,255,255,.78);border-color:rgba(37,99,235,.25);}' +
       '.appVersionBadge.is-active{color:#ffffff;background:linear-gradient(135deg,#2563eb,#0f766e);border-color:transparent;box-shadow:0 8px 18px rgba(37,99,235,.20);cursor:default;}' +
-      '.appVersionBadgeMode{flex:0 0 auto;font-weight:900;overflow:hidden;text-overflow:ellipsis;}' +
-      '.appVersionText{flex:0 1 auto;font-weight:800;opacity:.9;overflow:hidden;text-overflow:ellipsis;}' +
+      '.appVersionBadgeMode{flex:0 1 auto;min-width:0;max-width:100%;font-weight:900;overflow:hidden;text-overflow:ellipsis;}' +
+      '.appVersionText{flex:0 1 auto;min-width:0;max-width:100%;font-weight:800;opacity:.9;overflow:hidden;text-overflow:ellipsis;}' +
+      '.appVersionText:empty{display:none;}' +
       '@media(max-width:820px){.appVersionSegment{grid-template-columns:repeat(3,minmax(0,1fr));width:calc(100vw - 12px)}.appVersionBadge{font-size:10px;padding:5px 7px;gap:4px}}' +
       '@media(max-width:600px){.appVersionFooter{min-height:38px;padding:4px 4px}.appVersionSegment{gap:2px;padding:2px;width:calc(100vw - 8px)}.appVersionBadge{min-height:28px;padding:4px 4px;font-size:8.5px;gap:3px}.appVersionBadgeMode,.appVersionText{max-width:100%}}';
     document.head.appendChild(style);
@@ -658,12 +662,16 @@
       var isActive = key === currentEnv;
       var item = document.createElement(isActive ? 'span' : 'a');
       var targetUrl = isActive ? '' : buildTargetUrl(env);
+      var fullVersion = normalizeVersion(env.version);
+      var displayLabel = String(env.shortLabel || env.label || '').trim();
 
       item.className = 'appVersionBadge' + (isActive ? ' is-active' : '');
       item.setAttribute('role', 'listitem');
-      item.setAttribute('aria-label', env.label + ' ' + normalizeVersion(env.version));
+      item.setAttribute('aria-label', env.label + ' ' + fullVersion);
       item.dataset.skhEnvironmentKey = key;
       item.dataset.skhVersionSource = env.versionSource || 'fallback';
+      item.dataset.version = fullVersion;
+      item.dataset.environmentVersion = fullVersion;
 
       if(env.updatedAt){
         item.dataset.skhVersionUpdatedAt = env.updatedAt;
@@ -676,7 +684,7 @@
       item.title =
         env.label +
         ' ' +
-        normalizeVersion(env.version) +
+        fullVersion +
         (env.updatedAt ? '｜更新 ' + env.updatedAt : '') +
         (env.versionSource === 'manifest' ? '｜version.json' : '｜fallback');
 
@@ -693,8 +701,8 @@
       item.innerHTML =
         '<span class="appVersionBadgeMode"></span>' +
         '<span class="appVersionText"></span>';
-      item.querySelector('.appVersionBadgeMode').textContent = env.label;
-      item.querySelector('.appVersionText').textContent = normalizeVersion(env.version);
+      item.querySelector('.appVersionBadgeMode').textContent = displayLabel || env.label;
+      item.querySelector('.appVersionText').textContent = '';
       segment.appendChild(item);
     });
 
@@ -743,6 +751,7 @@
     renderEnvironmentFooter();
   }
 })(typeof window !== 'undefined' ? window : this);
+
 
 
 

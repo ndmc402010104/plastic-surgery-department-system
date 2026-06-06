@@ -1,0 +1,44 @@
+檔案位置：共用設定檔/UI設定/99_文件/environment-footer-display-regression-checklist-20260606.txt
+時間戳記：2026-06-06 11:16 UTC+8
+用途：Footer 手機版環境按鈕顯示文字縮短後的 regression checklist；確認不影響跳轉、版本來源與業務功能。
+
+一、Footer 手機版顯示
+1. 手機版 footer 三欄不被完整版本號撐爆。
+2. 手機版 footer 顯示短文字：AS 測試 / 測試版 / 正式版。
+3. 三欄寬度穩定，不因版本號長短改變比例。
+4. active 環境樣式維持不變。
+5. 完整版本號保留在 title 或 data-version。
+6. footer href 不變。
+7. footer 跳轉邏輯不變。
+8. version.json 不變。
+9. push.ps1 / release.ps1 / Update-VersionManifest.ps1 不變。
+
+二、頁面檢查
+10. FrontIndex footer 顯示正常。
+11. HospitalSignIn footer 顯示正常。
+12. DressingUse footer 顯示正常。
+13. DressingFront footer 顯示正常。
+14. HisConnectPage footer 顯示正常。
+15. 480px 手機寬度檢查正常。
+16. 390px 手機寬度檢查正常。
+17. 360px 手機寬度檢查正常。
+18. Console 無新的 JS error。
+19. 不影響任何業務頁功能。
+20. 不改三環境跳轉行為。
+
+三、Console 檢查指令
+document.querySelectorAll('.appVersionSegment').forEach((el, i) => {
+  console.log(i, {
+    text: el.innerText,
+    href: el.href,
+    title: el.title,
+    version: el.dataset.version || el.dataset.environmentVersion
+  });
+});
+
+四、預期結果
+1. text 只顯示 AS 測試、測試版、正式版。
+2. title 含完整版本號與 version.json/fallback 來源。
+3. data-version 或 data-environment-version 含完整版本號。
+4. href 與本輪修改前相同。
+5. 手機版 footer 固定在底部且不重疊、不撐寬。
