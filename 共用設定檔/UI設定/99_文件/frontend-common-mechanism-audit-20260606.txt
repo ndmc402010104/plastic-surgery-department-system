@@ -1,0 +1,142 @@
+檔案位置：共用設定檔/UI設定/99_文件/frontend-common-mechanism-audit-20260606.txt
+時間戳記：2026-06-06 10:09:49 UTC+8
+用途：前端共用機制現況盤點 audit；只記錄靜態搜尋與讀碼結果，不修改正式功能、不建立正式 App Shell 架構。
+
+一、總覽
+
+1. 已存在的共用機制：共用設定檔/AppShell.html、EnvironmentFooter.js、Config.js、Route.js、UI設定系列元件、version.json 與 Update-VersionManifest.ps1。
+2. Header 已有 AppShell.html，但 GitHub Pages 版多頁仍自行注入 ghHeader；subtitle、固定/相對定位、body padding 與寬度補償不一致。
+3. Footer 已有 EnvironmentFooter.js 與 Apps Script 端 getVersionBadgeHtml()，但同時存在 favicon.js 自動載入、各頁 fallback 載入與 Route.js 內嵌 footer HTML，屬於半統一。
+4. Version 已有 version.json manifest 與 push.ps1 / Update-VersionManifest.ps1，但 EnvironmentFooter.js 仍保有硬編碼版本，Apps Script 測試版不讀 version.json。
+5. Runtime 判斷已集中在 EnvironmentFooter.js/Route.js/Config.js 一部分，但多頁仍重複判斷 github.io、dev-skhps.jonaminz.com、skhps.jonaminz.com、script.google.com。
+6. URL/Route 已有 GITHUB_PAGE_ROUTES、APP_SCRIPT_PAGE_ROUTES 與 footer navigation helper，但各頁仍有 GITHUB_PAGE_MAP、getGithubPageUrl、goHome/goPage 的重複實作。
+7. 後端呼叫 adapter 已在 HIS、QR、院內登入、敷料頁各自存在，但不是全站共用；google.script.run、JSONP、fetch no-cors 混用。
+8. Loading/Error/Toast 已有 UI 元件雛形，但正式頁多用自製 notice、wait indicator、status 或 alert，錯誤診斷資訊不一致。
+9. Table/RWD 已有 UiTable.html 與測試頁 pattern，但敷料、後台、簽到頁仍各自用 table/min-width/overflow-x；敷料手機版欄位仍有跑版風險。
+10. 最適合優先整理的是只讀/外殼類：footer script 載入規則、runtime detect helper、route map helper、error diagnostics schema、loading indicator 樣式；暫時不該碰相機掃描、敷料送出、QR 簽到驗證、HIS 真實對接與 Apps Script action。
+
+二、共用機制盤點表
+
+| 項目 | 目前狀態 | 涉及檔案 | 現有 function / class / pattern | 主要問題 | 風險等級 | 建議下一步 |
+|---|---|---|---|---|---|---|
+| Header | 半統一 | 共用設定檔/AppShell.html；FrontIndex.html；SignQRGenerator.html；HospitalSignIn.html；DressingUse.html；DressingFront.html；DressingDict.html；HisConnectPage.html；AdminIndex.html；AdminMeeting.html；skh-ui-test-page.html | AppShell.html、.appHeader、.brand、.brandMark、.brandText、installGithubAppShellFallback()、ghHeader injection | Apps Script 用 include(AppShell)，GitHub Pages 又逐頁手動 prepend header；position fixed/relative、body padding、shell padding、subtitle 都各頁自管；DressingFront 無條件 prepend ghHeader，其他頁有 if(!.appHeader) 防重複 | 中 | 先抽「只產生 GitHub fallback header 的最小 helper」，不改 AppShell 正式渲染；建立 header 高度/定位 regression |
+| Footer | 已統一但不漂亮 | EnvironmentFooter.js；favicon.js；Route.js；FrontIndex.html；SignQRGenerator.html；HospitalSignIn.html；DressingUse.html；DressingFront.html；DressingDict.html；skh-ui-test-page.html | renderEnvironmentFooter()、renderVersionFooter()、.appVersionFooter、.appVersionSegment、.appVersionBadge、getVersionBadgeHtml()、data-skh-environment-footer | 同一 footer CSS/HTML 在 EnvironmentFooter.js 與 Route.js/getVersionBadgeHtml() 重複；每頁再 fallback 載入 EnvironmentFooter.js；footer fixed 造成頁面自行補 padding/getAppFooterHeight；版本按鈕比例在手機版容易過窄 | 高 | 先只統一「載入一次」與 data attribute 規則；保留現有 visual，不立刻改 footer layout |
+| Version | 半統一 | version.json；EnvironmentFooter.js；Config.js；Route.js；push.ps1；scripts/Update-VersionManifest.ps1 | loadVersionManifest()、getCurrentRuntimeInfo()、APP_VERSION、SKH_GAS_DEV_VERSION、SKH_WEB_DEV_VERSION、SKH_WEB_PROD_VERSION | version.json 有 prod/dev/gasDev，但 EnvironmentFooter.js 仍硬編碼三環境 version；Apps Script 測試版註明不讀 version.json；prod manifest 目前為 vtest-prod，與 EnvironmentFooter.js 的 webProd version 不一致 | 中 | 下一輪先整理「顯示來源優先序」文件與 UI，避免先動版本腳本；檢查 prod/dev/gasDev fallback 文案 |
+| Runtime | 半統一 | Config.js；EnvironmentFooter.js；Route.js；FrontIndex.html；SignQRGenerator.html；HospitalSignIn.html；DressingUse.html；DressingFront.html；HisConnectPage.html；favicon.js；skh-ui-test-page.html | SKH_RUNTIME、SKH_ENVIRONMENTS、detectCurrentEnv()、getCurrentAppEnv()、isGithubPage()、isAppsScriptMode() | 多頁硬寫 github.io/dev-skhps/skhps/script.google.com；github.io 被多頁直接視為 prod，可能使 dev GitHub Pages 與正式版互跳；fallback URL 分散 | 高 | 先新增只讀 runtime audit/helper 測試頁或 mock，不改正式頁；列出每頁 env 判斷結果 |
+| URL / Route Builder | 重複實作 | Route.js；EnvironmentFooter.js；FrontIndex.html；DressingUse.html；DressingFront.html；SignQRGenerator.html；HospitalSignIn.html；HisConnectPage.html；AdminIndex.html；AdminMeetingScript.html | APP_SCRIPT_PAGE_ROUTES、GITHUB_PAGE_ROUTES、GITHUB_PAGE_MAP、getGithubPageUrl()、buildAppPageUrl()、getAppScriptPageUrl()、goHome()、goPage() | route map 多份；page key 大小寫/命名混雜，如 signqr/signQR、dressingDict/dressingdict；onclick 裡直接拼 page=；Apps Script /exec -> /dev redirect 只有 FrontIndex 有較完整處理 | 高 | 先抽 route map 常數或產出比較表；只替換低風險首頁/測試頁前先做跨環境 URL checklist |
+| callBackend | 半統一 | HisConnectPage.html；SignQRGenerator.html；HospitalSignIn.html；DressingUse.html；DressingFront.html；DressingDict.html；AdminMeetingScript.html；Route.js doGet/doPost | callBackend()、callAppsScriptApi()、callAppsScriptJsonp()、jsonpDressingUseApi()、runGoogleScript()、runGoogleScriptWithWait() | adapter 每頁自寫；HIS 有 callBackend(action,payload)，其他頁用 action JSONP 或 direct google.script.run；DressingFront/DressingDict 多數仍直接 Apps Script，GitHub Pages 風險較高 | 高 | 先定義共用回傳格式與錯誤格式，不直接替換核心敷料/簽到流程 |
+| Loading | 重複實作 | AppShell.html；UiLoading.html；SignQRGenerator.html；HospitalSignIn.html；DressingUse.html；DressingFront.html；AdminMeeting.html；UiThemeLoader.html | AppWait/pushAppWait、.appWaitIndicator、.waitIndicator、setBusy()、setUseInitLoading()、setButtonLoading()、.loading、.skh-spinner | 全頁/按鈕/欄位 loading 混用；DressingUse 初始化自動讀取，但 dataReady 前掃描與新增列 disabled；SignQR/HospitalSignIn 只在 GitHub fallback 建 AppWait；UI Loading 元件未普遍採用 | 中 | 先統一 loading 狀態名稱與不阻擋掃碼原則；敷料領用做獨立 regression，不先改 |
+| Error | 重複實作 | HisConnectPage.html；DressingUse.html；DressingFront.html；DressingDict.html；SignQRGenerator.html；HospitalSignIn.html；AdminMeetingScript.html；UiThemeLoader.html | setStatus()、showNotice()、openDialog()、showConfirmDialog()、alert()、console.warn()、skh-ui-theme-error | 錯誤文案多為讀取失敗/API 載入失敗；HIS 可見 status 但缺 action、stage、env、time、version 結構化資訊；多處 catch 只 console.warn 或吞掉 | 高 | 先設計 diagnostics payload 顯示規格；HIS 測試頁可作第一個低風險試點 |
+| Toast / Alert / Confirm | 未統一 | UiAlert.html；DressingUse.html；DressingFront.html；DressingDict.html；SignMeeting.html；SignQRGenerator.html；HospitalSignIn.html；HisConnectPage.html；AdminMeetingScript.html；UiStyleTest.html；UiButtonTest.html | .skh-toast、showNotice()、openDialog()、showConfirmDialog()、alert()、confirm() | 至少三套：UI設定 skh-toast、敷料 notice/modal、browser alert/confirm；手機版 alert 會中斷操作，QR/簽到/後台仍大量使用 | 中 | 先只盤點 alert/confirm 清單；不要一次替換簽到與後台流程 |
+| Page lifecycle | 半統一 | EnvironmentFooter.js；UiThemeLoader.html；FrontIndex.html；SignMeeting.html；SignQRGenerator.html；HospitalSignIn.html；DressingUse.html；DressingFront.html；DressingDict.html；AdminMeetingScript.html | DOMContentLoaded、initPage()、installGithubAppShellFallback()、hashchange、beforeunload、setInterval、Html5Qrcode stop/clear | 多頁靠 DOMContentLoaded，但 fallback header/footer 注入與頁面 init 混在一起；DressingUse 有 setInterval 無 cleanup；SignQR QR keepalive/interval 寫進新視窗 HTML；App Shell Router 會遇到事件重綁與 scanner/timer cleanup 問題 | 高 | 未來 App Shell 實驗先 mock lifecycle，正式頁逐頁導入；先列 cleanup checklist |
+| CSS 共用 class | 半統一 | UI設定/00-05；AppShell.html；FrontIndex.html；DressingUse.html；DressingFront.html；DressingDict.html；SignMeeting.html；AdminMeeting.html；skh-ui-test-page.html | .skh-btn、.skh-alert、.skh-table、.skh-loading-*、.appHeader、.pageMapLink、.card、.sectionCard、.statusText、.noticeCard | 共用 UI 元件存在但正式頁大量 inline/local CSS；button/card/table/status/footer class 重名不同義；GitHub fallback style 用 !important 改 shell 寬度 | 中 | 先建立 class 對照表與禁止重名規則；不急著改 CSS |
+| Table / Row Card / RWD | 半統一 | UiTable.html；DressingUse.html；DressingFront.html；DressingDict.html；SignMeeting.html；AdminMeeting.html；UiStyleTest.html；UiButtonTest.html；skh-ui-test-page.html | .skh-table、.useRowsWrap、.useTable、.dictTableWrap、.dictTable、.inventory*、.testTableScroll、.statusTable | 大多用水平捲動 table/min-width，row card pattern 未成為共用；DressingUse useTable min-width 1120/1280，DressingDict dictTable 1080-1220，手機只能滑；敷料名稱/院內碼/庫存狀態/自費價格欄位仍易壓縮或溢出 | 高 | 優先做敷料列表 RWD screenshot checklist；再決定 mobile table pattern，不先抽共用元件 |
+
+三、檔案層級盤點
+
+| 檔案 | 頁面用途 | Header/Footer 狀態 | Runtime 狀態 | callBackend 狀態 | Loading/Error 狀態 | Route/URL 狀態 | 備註 |
+|---|---|---|---|---|---|---|---|
+| 科室系統用戶端/FrontIndex.html | 前台首頁 | Apps Script include AppShell；GitHub Pages 手動注入 fixed ghHeader；手動載入 EnvironmentFooter.js | getCurrentAppEnv() 自判；github.io 視為 prod；有 /exec redirect to /dev | 無後端 adapter | 無主要 loading；catch 部分吞掉 | GITHUB_PAGE_MAP、buildAppPageUrl、goPage/goHome 手寫 | 正式首頁禁止修改；但它是 route/helper 重複的集中樣本 |
+| 敷料領用登錄系統/DressingUse.html | 敷料領用 | include AppShell；GitHub fallback header/footer；body/shell padding 自調 | isGithubPage/isAppsScriptMode；APP_ENTRY_URL/APP_PROD_URL fallback 硬編碼 exec | runGoogleScript + JSONP action adapter | initializeUsePage 自動讀取；dataReady 前掃描/新增列 disabled；showNotice/openDialog | GITHUB_PAGE_MAP、getGithubPageUrl、goHome 手寫 | 進頁會自動讀取，不是只靠重新整理；但掃碼被後端初始化阻擋，需列高風險 |
+| 敷料領用登錄系統/DressingFront.html | 敷料查詢/建檔/庫存入口 | include AppShell；GitHub fallback 直接 prepend ghHeader；footer 載入；有 getAppFooterHeight() | isGithubPage、getAppScriptPageUrl、hash route；APP URL fallback 硬編碼 | runGoogleScriptWithWait，主要仍依 google.script.run；部分 JSONP cleanup | showNotice/showConfirmDialog；scanner stop/clear；beforeunload | GITHUB_PAGE_MAP、hash #inventory/#dressingDict/#dressingUse | footer 高度已影響 scroll/focus；敷料表格和庫存表格 RWD 風險高 |
+| 敷料領用登錄系統/敷料建檔/DressingDict.html | 敷料建檔獨立頁 | 類似 AppShell/fallback header/footer；local notice CSS | isAppsScriptMode；GitHub env 判斷存在 | 多處 direct google.script.run；JSONP barcode script cleanup | showNotice/showConfirmDialog；scanner stop/clear；beforeunload | goHome/切換領用仍自管 | 與 DressingFront 有大量相似邏輯，未來不宜直接合併 |
+| 科室系統用戶端/SignQRGenerator.html | QR 產生 | include AppShell；GitHub fallback header/footer；AppWait fallback | isGithubPage、getAppEntryUrl 硬編碼 exec fallback | callAppsScriptApi JSONP + google.script.run 分流 | pushAppWait；alert；console.warn；QR preview interval/keepalive | GITHUB_PAGE_MAP、getFrontendPageUrl、buildSignQRUrl | QR 新視窗有 interval/wake lock，App Shell 下需 cleanup 策略 |
+| 科室系統用戶端/SignMeeting.html | QR 簽到 | include AppShell；沒有看到同等 GitHub fallback header script；主要簽到表單 | query param 與 APP_ENTRY_URL；隱藏後台入口直接 APP_ENTRY_URL?page=adminplasty1400 | fetch Google Form no-cors，不走 Apps Script adapter | alert 驗證；提交後 document.body.innerHTML 顯示結果 | 直接拼 page=adminplasty1400 | QR 簽到驗證流程不建議現在統一；快速選擇姓名仍是頁內 table/button |
+| 科室系統用戶端/HospitalSignIn.html | 院內系統快速登入 | include AppShell；GitHub fallback header/footer；AppWait fallback | isGithubPage/isAppsScriptPage；exec fallback | callAppsScriptApi JSONP + google.script.run | load list 失敗只 console.warn；部分 alert | GITHUB_PAGE_MAP、goHome | 清單載入失敗時使用者診斷不足 |
+| HisConnect/HisConnectPage.html | HIS 對接測試 | include AppShell；直接 script EnvironmentFooter.js | isGithubPage/isAppsScriptPage/getCurrentAppEnv；會讀 SKH_ENVIRONMENTS apiUrl | 有 callBackend(action,payload)，Apps Script + JSONP | setStatus + alert + popup error；payload 含 runtimeMode/appVersion | GITHUB_PAGE_MAP、getGithubPageUrl、goHome | 最適合做 diagnostics 試點；目前看不出 action/stage/env/time 完整鏈路 |
+| 後台/後台首頁/AdminIndex.html 與 後台/後台簽到管理/AdminIndex.html | 後台首頁 | include AppShell；footerNote local | 主要 Apps Script APP_ENTRY_URL | 無 adapter | 無主要 loading；onclick | goMeeting/goSystemHome/goAdminHome 直接拼 page= | 兩份 AdminIndex 內容高度相似，路徑重複需確認來源角色 |
+| 後台/後台簽到管理/AdminMeeting.html + AdminMeetingScript.html | 簽到管理後台 | include AppShell；local table/loading CSS | Apps Script only | 多處 google.script.run | setButtonLoading、.loading、alert/confirm | goHome 直接 APP_ENTRY_URL?page=ADMIN_PAGE_KEY | 不適合現在導入 GitHub Pages adapter；先保留 |
+| 共用設定檔/AppShell.html | 頁面外殼雛形 | 提供 appHeader、pageMapLink、AppWait CSS/HTML | 無完整 runtime | 無 adapter | 有 AppWait style，但正式頁多自建 | 無 route helper | 可作 App Shell 實驗基底，但現在不宜正式套 Router |
+| 共用設定檔/EnvironmentFooter.js | 三環境頁尾 | renderEnvironmentFooter fixed footer | SKH_RUNTIME/SKH_ENVIRONMENTS/detectCurrentEnv | loadVersionManifest fetch /version.json | manifest 失敗只 console.warn + footer 文案 | buildTargetUrl/buildGasTargetUrl/buildWebTargetUrl | 已是最接近共用 runtime/route/footer 的檔案，但仍有硬編碼 version/url |
+| 共用設定檔/Config.js | Apps Script 設定 | 無前端 UI | APP_ENTRY_URL、APP_DEV_URL、APP_VERSION、SKH_*_VERSION | 無 | 無 | page name constants | 只讀盤點；不修改 |
+| 共用設定檔/Route.js | Apps Script route/backend API | getVersionBadgeHtml 會產 footer HTML | APP_REQUEST_ENV、GITHUB_PAGE_ROUTES | doGet/doPost dispatch frontend/dressing/HIS actions | doGet/doPost error message 簡短 | APP_SCRIPT_PAGE_ROUTES、GITHUB_PAGE_ROUTES、getAppPageUrl 類邏輯 | 與 EnvironmentFooter.js 重複 route/footer 邏輯 |
+| 共用設定檔/favicon.js | favicon + footer auto loader | 會自動注入 EnvironmentFooter.js | 判斷 github.io/dev-skhps/skhps | 無 | 無 | 無 | 可能和各頁 fallback loader 重疊 |
+| 共用設定檔/UI設定/99_文件/skh-ui-test-page.html | UI 測試中心 | include AppShell + GitHub fallback header/footer | isGithubPage/getGithubPageUrl | google.script.run 測試 | showError、theme ready wait cleanup | GITHUB_PAGE_MAP | 可作共用 UI/RWD 驗證頁 |
+| 共用設定檔/UI設定/00_基礎/UiThemeLoader.html | Theme loader | 無 header/footer | google.script.run only | callScriptFunction_ | skh-ui-theme-error event，15s hard timeout | 無 | 有較清楚 lifecycle event，可借鏡 |
+| 共用設定檔/UI設定/01_按鈕/UiButton.html、03_表格/UiTable.html、04_提示/UiAlert.html、05_互動/UiLoading.html、UiModal.html | 共用 UI 元件 | 無頁頭頁尾 | 無 | 無 | 提供 skh-spinner/skh-toast/skh-modal 等 | 無 | 元件存在，但正式頁採用率低 |
+| push.ps1 | 部署與版本推送 | 會更新 EnvironmentFooter.js 版本字串 | 內含 dev-skhps/skhps URL | 無 | 腳本錯誤處理 | 產生 deploy URL | 會同步 version.json，且以 regex 更新 footer 硬編碼版本 |
+| scripts/Update-VersionManifest.ps1 | version.json helper | 無 | dev/prod/gasDev manifest | 無 | JSON parse 失敗會停止 | 固定 dev/prod URL | version.json 被 EnvironmentFooter.js 讀取，但 gasDev 註明不讀 |
+| version.json | GitHub Pages 版本 manifest | 無 | prod/dev/gasDev | 無 | 無 | URL 欄位 | prod/dev/gasDev 顯示邏輯與 EnvironmentFooter.js fallback 不完全一致 |
+
+四、最值得優先整理的項目
+
+1. Footer 載入規則與重複注入防護
+   為什麼值得先做：影響多頁但可只改載入與 data attribute，不碰業務流程。
+   可能影響頁：FrontIndex、SignQRGenerator、HospitalSignIn、DressingUse、DressingFront、DressingDict、skh-ui-test-page、favicon.js。
+   最小修改：先建立「每頁只能有一個 data-skh-environment-footer script、一個 data-app-footer」的檢查，不改版面。
+   Regression checklist：footer 不重複、手機高度一致、footer 不遮住內容、版本按鈕三欄仍可點、GitHub Pages 與 Apps Script 都顯示。
+
+2. Runtime detect helper 文件化與測試頁 mock
+   為什麼值得先做：目前 env 判斷分散，是 URL 跳錯環境與 API 打錯部署的主因。
+   可能影響頁：所有 GitHub Pages 前端與 EnvironmentFooter.js。
+   最小修改：先不替換正式頁，新增 App Shell Route Test Page mock 各 hostname/search/path 判斷結果。
+   Regression checklist：dev-skhps 不被視為 prod、github.io 行為明確、script.google.com /dev 與 /exec 文案正確、appEnv 參數保留。
+
+3. Route map 對照與 page key 正規化
+   為什麼值得先做：多頁 GITHUB_PAGE_MAP 重複，且 page key 大小寫不一致。
+   可能影響頁：FrontIndex、DressingUse、DressingFront、SignQRGenerator、HospitalSignIn、HisConnect、AdminIndex。
+   最小修改：先產出 route map audit 或 helper read-only compare，不直接改 onclick。
+   Regression checklist：首頁、QR、院內登入、敷料查詢、敷料領用、UI測試、HIS、後台在 dev/prod/gas 三環境都不互跳錯。
+
+4. Error diagnostics 顯示規格
+   為什麼值得先做：HIS 與 API 載入失敗目前難判斷哪一層壞；規格可先做低風險顯示。
+   可能影響頁：HisConnectPage、SignQRGenerator、HospitalSignIn、DressingUse、DressingFront。
+   最小修改：先在 HIS 測試頁 mock 顯示 action/stage/env/time/version/apiUrl，不碰後端。
+   Regression checklist：錯誤包含 action、階段、env、時間、版本；不暴露敏感 token；手機版可讀。
+
+5. Loading indicator 名稱與阻擋原則
+   為什麼值得先做：AppWait、waitIndicator、setBusy、loading class 多套，且敷料掃碼被 dataReady 阻擋。
+   可能影響頁：DressingUse、DressingFront、SignQRGenerator、HospitalSignIn、AdminMeeting。
+   最小修改：先定義「全頁阻擋、按鈕 loading、欄位 loading、資料預載」四種狀態，不先替換核心流程。
+   Regression checklist：敷料領用基本資料可先填、掃碼不被不必要初始化阻擋、送出時仍防重複提交、按鈕寬度不跳動。
+
+五、暫時不建議整理的項目
+
+1. 相機掃描流程：DressingUse、DressingFront、DressingDict 使用 Html5Qrcode，含 stop/clear、active row、overlay、手機權限；App Shell Router 下 cleanup 風險高，應逐頁導入。
+2. 敷料領用核心送出流程：submitUseForm 會驗證、確認、扣庫、重複領用警示、送出後 refresh inventory；不應在共用 adapter 尚未穩定前改。
+3. QR 簽到驗證流程：SignMeeting 直接寫 Google Form no-cors，且有隱藏後台入口與 sessionStorage token 行為；不應先改成共用 fetch/callBackend。
+4. HIS 真實對接流程：目前仍是測試頁與 bridge HTML/popup；應先加診斷顯示，再談共用化。
+5. 後端 Apps Script action：Route.js doGet/doPost、DressingInventory、DressingBarcodeFetch、HisBridgeService 涉及資料寫入與部署 endpoint，本輪不改。
+6. 後台 AdminMeeting：仍是 Apps Script only 且大量 google.script.run、alert/confirm；不適合第一波 GitHub Pages adapter。
+
+六、未來 App Shell 實驗室可以先 mock 的項目
+
+第一版一定要 mock：
+1. runtime detect：hostname、path、search、hash -> gasDev/gasExec/webDev/webProd。
+2. route builder：首頁、QR、院內登入、敷料查詢、敷料領用、UI測試、HIS 的 gas/web 目標 URL。
+3. footer render：三環境版本按鈕、active env、version manifest 成功/失敗 fallback。
+4. header render：brand/subtitle/home click、fixed vs relative、手機高度與 body padding。
+5. loading state：global wait、button loading、data preload、non-blocking preload。
+6. error diagnostics panel：action/stage/env/time/version/apiUrl/message。
+
+第二版再 mock：
+1. callBackend adapter：google.script.run、JSONP、fetch/doPost 三種假回應。
+2. toast/modal/confirm 統一 API：success/warning/error/confirm/input。
+3. table/mobile pattern：水平捲動、row-card、sticky hint、欄位 priority。
+4. scanner lifecycle stub：open/close/start/stop/route leave cleanup，不接真相機。
+5. version.json mock：dev/prod/gasDev version 不同與讀取失敗狀態。
+
+不應該 mock，應保留正式頁逐頁導入：
+1. 真實相機掃描與 Html5Qrcode permission。
+2. 敷料扣庫與 submitDressingUse。
+3. QR 簽到寫入 Google Form。
+4. HIS 真實 hidden form / popup bridge。
+5. Apps Script doGet/doPost action dispatch。
+
+七、Regression checklist 建議
+
+1. Footer 比例一致：桌面與手機皆只有一個 footer；三欄按鈕等寬；不遮住主要按鈕、表格底部與 scanner overlay。
+2. Version 顯示一致：dev-skhps 顯示測試版、本頁版本與正式最新版；skhps 顯示正式版、本頁版本與測試最新版；gasDev 顯示 Apps Script 測試版。
+3. Runtime 顯示一致：script.google.com/dev、script.google.com/exec、dev-skhps.jonaminz.com、skhps.jonaminz.com、github.io 都有明確 env。
+4. URL 不跳錯環境：從 dev-skhps 切頁不跳 skhps；從 skhps 不跳 dev；Apps Script /dev 保留 appEnv=dev/page；/exec 顯示警示或導向規則符合預期。
+5. callBackend 不破壞 Apps Script / GitHub Pages 分流：Apps Script 版使用 google.script.run；GitHub Pages 使用 API URL/JSONP/fetch；回傳 ok/message/data 格式一致。
+6. Loading 不阻擋掃碼：資料預載可以顯示進度，但不應不必要阻擋基本輸入；若掃碼必須等資料，要明確說明且可重新整理。
+7. Error 能顯示 action / 階段 / env / 時間：至少 HIS、敷料 API、QR 會議清單、院內登入清單要能看出失敗層。
+8. 手機版 header/footer 不遮住內容：720px/640px/480px 寬度檢查；header 高度、body padding、footer 高度、fixed element z-index 都要測。
+9. 事件不重複綁定：重跑 App Shell render 或 hashchange 後，不重複 click/input/interval/scanner listener。
+10. Scanner cleanup：離開頁面、關閉 overlay、重新開啟 scanner 後 Html5Qrcode stop/clear 正常，無殘留相機。
+11. Table/RWD：敷料名稱、院內碼、庫存狀態、自費價格在手機版不可互相覆蓋；水平捲動提示可見；重要欄位可讀。
+12. Toast/Modal：手機版不被 footer/header 擋住；alert/confirm 替換前要確認流程不改變。
+13. 不影響現有頁面功能：QR 產生、QR 簽到、院內登入、敷料領用、敷料查詢/建檔、HIS 測試、後台簽到管理皆須保留既有入口與 action。
+14. Version manifest：version.json 讀取失敗時 footer fallback 文案清楚，不造成頁面 JS error。
+15. GitHub Pages base path：github.io repo prefix 與 custom domain 根目錄都能正確組路徑。

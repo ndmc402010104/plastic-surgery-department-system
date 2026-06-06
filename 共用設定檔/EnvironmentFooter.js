@@ -1,4 +1,4 @@
-﻿/*
+/*
 檔案位置：共用設定檔/EnvironmentFooter.js
 時間戳記：2026-06-06 03:44 UTC+8
 用途：全站三段式環境頁尾；提供三段式環境切換、集中 API URL 設定與 GitHub Pages 跨環境版本摘要。
@@ -20,7 +20,7 @@
       label:'app script測試版',
       url:'https://script.google.com/macros/s/AKfycbwySlDY2aAbYpy5OSi85vHz1pk5g1FQfopcaCfVneE/dev',
       apiUrl:'https://script.google.com/macros/s/AKfycbwySlDY2aAbYpy5OSi85vHz1pk5g1FQfopcaCfVneE/dev',
-      version:'v2.37.0-202606060421',
+      version:'v2.37.0-202606061013',
       type:'gas'
     },
     webDev:{
@@ -28,7 +28,7 @@
       label:'測試版',
       url:'https://dev-skhps.jonaminz.com',
       apiUrl:'https://script.google.com/macros/s/AKfycbwySlDY2aAbYpy5OSi85vHz1pk5g1FQfopcaCfVneE/dev',
-      version:'v2.37.0-202606060421',
+      version:'v2.37.0-202606061013',
       type:'web'
     },
     webProd:{
@@ -541,6 +541,7 @@
     renderEnvironmentFooter();
   }
 })(typeof window !== 'undefined' ? window : this);
+
 
 
 
