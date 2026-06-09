@@ -29,22 +29,26 @@ const APP_ENTRY_URL =
 'https://script.google.com/macros/s/AKfycbwbz8pXfU68j2aFeF_AaDmmG6Vco3JsPSw-PGyYeLu0AF3vCfzaZJQFOjORnwSw8Xp4/exec';
 const APP_DEV_URL =
 'https://script.google.com/macros/s/AKfycbwySlDY2aAbYpy5OSi85vHz1pk5g1FQfopcaCfVneE/dev';
+const SKH_WEB_DEV_ORIGIN =
+'https://dev-skhps.jonaminz.com';
+const SKH_WEB_PROD_ORIGIN =
+'https://skhps.jonaminz.com';
 const DEPLOYMENT_ID =
 'AKfycbwbz8pXfU68j2aFeF_AaDmmG6Vco3JsPSw-PGyYeLu0AF3vCfzaZJQFOjORnwSw8Xp4';
 const APP_DEV_DEPLOYMENT_ID =
 'AKfycbwySlDY2aAbYpy5OSi85vHz1pk5g1FQfopcaCfVneE';
 const APP_DEFAULT_ENV =
-'prod';
+'dev';
 const SCRIPT_ID =
 '1TN6XHQNLXN6_x4780WEZbEf8IKGaY2t0MQu_F9jT1b2dbo7L3cRV2asQ';
 const APP_VERSION =
-'2.37.0-202606061548';
+'2.37.2-202606091938';
 
 const SKH_GAS_DEV_VERSION =
-'2.37.0-202606061548';
+'2.37.2-202606091938';
 
 const SKH_WEB_DEV_VERSION =
-'2.37.0-202606061548';
+'2.37.2-202606091938';
 
 const SKH_WEB_PROD_VERSION =
 '2.37.0-202606061548';

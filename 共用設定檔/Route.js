@@ -8,6 +8,9 @@ Route.gs
 var APP_REQUEST_ENV =
   APP_DEFAULT_ENV;
 
+var APP_REQUEST_PAGE =
+  'frontindex';
+
 var APP_SCRIPT_PAGE_ROUTES = [
   {
     keys:['signmeeting'],
@@ -147,6 +150,9 @@ function doGet(e){
     page =
       e.parameter.page;
   }
+
+  APP_REQUEST_PAGE =
+    page || 'frontindex';
 
   const adminPageKey =
     ADMIN_PAGE_PREFIX +
@@ -552,8 +558,8 @@ function getSharedEnvironmentFooterHtml_(showCalendarSource){
   const footerScriptUrl =
     (
       APP_REQUEST_ENV === 'dev'
-        ? 'https://dev-skhps.jonaminz.com'
-        : 'https://skhps.jonaminz.com'
+        ? SKH_WEB_DEV_ORIGIN
+        : SKH_WEB_PROD_ORIGIN
     ) +
     '/%E5%85%B1%E7%94%A8%E8%A8%AD%E5%AE%9A%E6%AA%94/EnvironmentFooter.js?v=' +
     encodeURIComponent(APP_VERSION || '');
@@ -572,12 +578,46 @@ function getSharedEnvironmentFooterHtml_(showCalendarSource){
   return [
     calendarSourceScript,
     '<script>',
+    'window.SKH_ENVIRONMENTS=Object.assign({},window.SKH_ENVIRONMENTS||{},',
+    JSON.stringify({
+      gasDev:{
+        key:'gasDev',
+        label:'app script測試版',
+        shortLabel:'AS 測試',
+        url:APP_DEV_URL,
+        apiUrl:APP_DEV_URL,
+        version:SKH_GAS_DEV_VERSION,
+        type:'gas'
+      },
+      webDev:{
+        key:'webDev',
+        label:'測試版',
+        shortLabel:'測試版',
+        url:SKH_WEB_DEV_ORIGIN,
+        apiUrl:APP_DEV_URL,
+        version:SKH_WEB_DEV_VERSION,
+        type:'web'
+      },
+      webProd:{
+        key:'webProd',
+        label:'正式版',
+        shortLabel:'正式版',
+        url:SKH_WEB_PROD_ORIGIN,
+        apiUrl:APP_ENTRY_URL,
+        version:SKH_WEB_PROD_VERSION,
+        type:'web'
+      }
+    }),
+    ');',
+    '</script>',
+    '<script>',
     'window.SKH_RUNTIME=Object.assign({},window.SKH_RUNTIME||{},',
     JSON.stringify({
       currentEnv: footerEnv,
       defaultEnv: footerEnv,
       env: APP_REQUEST_ENV,
       mode: footerMode,
+      pageKey: APP_REQUEST_PAGE,
       version: APP_VERSION
     }),
     ');',
